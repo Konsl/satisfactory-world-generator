@@ -147,6 +147,7 @@ pub struct FrackingSatellite {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct World {
+    pub game_version: String,
     pub resource_nodes: Vec<ResourceNode>,
     pub geysers: Vec<GeyserNode>,
     pub fracking_cores: Vec<FrackingCore>,

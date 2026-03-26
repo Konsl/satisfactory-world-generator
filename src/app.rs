@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use egui::Color32;
+use egui::{Color32, Layout};
 use egui_plot::{MarkerShape, PlotItem, PlotPoint, Points};
 use strum::IntoEnumIterator;
 
@@ -138,14 +138,36 @@ impl eframe::App for App {
                 });
             });
 
+        let world = self.world.get_or_insert_with(|| {
+            let start_time = Instant::now();
+
+            let mut world: World =
+                serde_json::from_str(include_str!("default-world.json")).unwrap();
+
+            apply_randomization_settings(
+                &mut world,
+                self.seed.unwrap_or_default(),
+                self.randomization_mode,
+                self.purity_settings,
+            );
+
+            self.last_calc_duration = start_time.elapsed();
+            world
+        });
+
         egui::TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
-            if self.last_calc_duration.is_zero() {
-                return;
-            }
-            ui.label(format!(
-                "calculation took {:.2} ms",
-                self.last_calc_duration.as_secs_f64() * 1000.0
-            ));
+            ui.horizontal(|ui| {
+                if !self.last_calc_duration.is_zero() {
+                    ui.label(format!(
+                        "calculation took {:.2} ms",
+                        self.last_calc_duration.as_secs_f64() * 1000.0
+                    ));
+                }
+
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(world.game_version.clone());
+                });
+            })
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -157,23 +179,6 @@ impl eframe::App for App {
                 .invert_y(true);
 
             plot.show(ui, |plot_ui| {
-                let world = self.world.get_or_insert_with(|| {
-                    let start_time = Instant::now();
-
-                    let mut world: World =
-                        serde_json::from_str(include_str!("default-world.json")).unwrap();
-
-                    apply_randomization_settings(
-                        &mut world,
-                        self.seed.unwrap_or_default(),
-                        self.randomization_mode,
-                        self.purity_settings,
-                    );
-
-                    self.last_calc_duration = start_time.elapsed();
-                    world
-                });
-
                 let test_rect = plot_ui
                     .transform()
                     .rect_from_values(&PlotPoint::new(0.0, 0.0), &PlotPoint::new(1.0, 1.0));
