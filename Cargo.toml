@@ -1,0 +1,19 @@
+[package]
+name = "satisfactory-random-gen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.33.3"
+egui = "0.33.3"
+egui_plot = "0.34.1"
+env_logger = "0.11.10"
+futures = "0.3.32"
+log = "0.4.29"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+strum = { version = "0.28.0", features = ["derive"] }
+
+# optimize all dependencies even in debug builds
+[profile.dev.package."*"]
+opt-level = 2
