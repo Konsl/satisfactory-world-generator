@@ -1,5 +1,6 @@
 use std::{collections::HashSet, fmt::Display};
-
+#[cfg(feature = "cli")]
+use clap::ValueEnum;
 use strum::{EnumIter, IntoEnumIterator};
 
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
 };
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, EnumIter)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum NodeRandomizationMode {
     None,
     Strict,
@@ -29,6 +31,7 @@ impl Display for NodeRandomizationMode {
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, EnumIter)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum NodePuritySettings {
     NoChange,
     AllImpure,

@@ -1,4 +1,6 @@
 /target
+.idea
 
 /scripts/extracted-resources.json
 /src/default-world.json
+output-world.svg

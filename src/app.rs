@@ -9,6 +9,21 @@ use crate::{
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
 };
 
+pub fn run() {
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([400.0, 300.0])
+            .with_min_inner_size([400.0, 300.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "Satisfactory World Generator",
+        native_options,
+        Box::new(|cc| Ok(Box::new(App::new(cc)))),
+    ).unwrap()
+}
+
 pub struct App {
     seed: Option<i32>,
     randomization_mode: NodeRandomizationMode,
@@ -37,21 +52,7 @@ impl App {
     }
 
     fn get_resource_color(resource: ResourceDescriptor) -> Color32 {
-        Color32::from_hex(match resource {
-            ResourceDescriptor::OreIron => "#975f6a",
-            ResourceDescriptor::Coal => "#15008e",
-            ResourceDescriptor::OreCopper => "#9b4c2b",
-            ResourceDescriptor::Stone => "#56452d",
-            ResourceDescriptor::RawQuartz => "#9f6c99",
-            ResourceDescriptor::SAM => "#502e8e",
-            ResourceDescriptor::OreBauxite => "#68392d",
-            ResourceDescriptor::OreGold => "#af9c72",
-            ResourceDescriptor::Sulfur => "#afaa27",
-            ResourceDescriptor::OreUranium => "#357336",
-            ResourceDescriptor::Water => "#4a88ab",
-            ResourceDescriptor::LiquidOil => "#603560",
-            ResourceDescriptor::NitrogenGas => "#7d8089",
-        })
+        Color32::from_hex(resource.get_color())
         .unwrap()
     }
 }
