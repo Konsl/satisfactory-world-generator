@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use egui::{Color32, Layout};
-use egui_plot::{MarkerShape, PlotItem, PlotPoint, Points};
+use egui_plot::{MarkerShape, PlotPoint, Points};
 use strum::IntoEnumIterator;
 
 use crate::{

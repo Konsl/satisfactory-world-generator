@@ -174,7 +174,6 @@ pub fn modify_node_distribution(
 
         let new_resource =
             resource_options[rng.frand_range(0.0..resource_options.len() as f32) as usize];
-        println!("converting {} to {}", n.resource, new_resource);
         n.resource = new_resource;
 
         matching_node_count += 1;

@@ -5,8 +5,6 @@ program to simulate the random game mode's randomized node distribution introduc
 
 you need to provide a JSON file of the resources present in the default world, which can be generated from the game assets using `scripts/`
 
-**NOTE**: the current version should be mostly accurate, except for the randomization modes that increase specific resource types (e.g. "more fossil fuels")
-
 ## Inaccuracies
 
 if you notice that the output of this program does not match what you see in game, open an issue containing the following:
