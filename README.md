@@ -3,7 +3,7 @@ program to simulate the random game mode's randomized node distribution introduc
 
 ![screenshot](screenshot.png)
 
-you need to provide a JSON file of the resources present in the default world, which can be generated from the game assets using `scripts/`
+`src/default-world.json` describes the resources present in the default world and can be generated from the game assets using `scripts/`
 
 ## Inaccuracies
 
