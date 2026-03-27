@@ -36,6 +36,30 @@ impl App {
         Default::default()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_time() -> Instant {
+        Instant::now()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn get_time() -> f64 {
+        web_sys::window()
+            .expect("no window")
+            .performance()
+            .expect("no performance")
+            .now()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_elapsed_duration(start_time: Instant) -> Duration {
+        start_time.elapsed()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn get_elapsed_duration(start_time: f64) -> Duration {
+        Duration::from_secs_f64((Self::get_time() - start_time) / 1000.0)
+    }
+
     fn get_resource_color(resource: ResourceDescriptor) -> Color32 {
         Color32::from_hex(match resource {
             ResourceDescriptor::OreIron => "#975f6a",
@@ -139,7 +163,7 @@ impl eframe::App for App {
             });
 
         let world = self.world.get_or_insert_with(|| {
-            let start_time = Instant::now();
+            let start_time = Self::get_time();
 
             let mut world: World =
                 serde_json::from_str(include_str!("default-world.json")).unwrap();
@@ -151,7 +175,7 @@ impl eframe::App for App {
                 self.purity_settings,
             );
 
-            self.last_calc_duration = start_time.elapsed();
+            self.last_calc_duration = Self::get_elapsed_duration(start_time);
             world
         });
 
