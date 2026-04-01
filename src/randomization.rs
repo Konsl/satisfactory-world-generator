@@ -106,7 +106,7 @@ pub fn shuffle<T>(rng: &mut RandomStream, node_pool: &mut [T]) {
     let mut i = 0;
 
     while i < node_pool.len() - 1 {
-        let swap_index = rng.frand_range(i as f32..node_pool.len() as f32) as usize;
+        let swap_index = rng.frand_range(0.0..(node_pool.len() - i) as f32) as usize + i;
         node_pool.swap(i, swap_index);
 
         i += 1;
