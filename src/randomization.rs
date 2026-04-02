@@ -1,56 +1,41 @@
-use std::{collections::HashSet, fmt::Display};
-
-use strum::{EnumIter, IntoEnumIterator};
+use std::collections::HashSet;
+use strum::IntoEnumIterator;
 
 use crate::{
     game::{FrackingCore, GameplayTag, ResourceDescriptor, ResourceNode, ResourcePurity, World},
     random_stream::RandomStream,
 };
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, EnumIter)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, strum::EnumIter, strum::Display)]
 pub enum NodeRandomizationMode {
+    #[strum(to_string = "none")]
     None,
+    #[strum(to_string = "random")]
     Strict,
+    #[strum(to_string = "more basic nodes")]
     BasicRich,
+    #[strum(to_string = "more advanced nodes")]
     AdvancedRich,
+    #[strum(to_string = "more fossil fuels")]
     FossilFuelRich,
 }
 
-impl Display for NodeRandomizationMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::None => "none",
-            Self::Strict => "random",
-            Self::BasicRich => "more basic nodes",
-            Self::AdvancedRich => "more advanced nodes",
-            Self::FossilFuelRich => "more fossil fuels",
-        })
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Clone, Copy, EnumIter)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy, strum::EnumIter, strum::Display)]
 pub enum NodePuritySettings {
+    #[strum(to_string = "unchanged")]
     NoChange,
+    #[strum(to_string = "all impure")]
     AllImpure,
+    #[strum(to_string = "decrease")]
     Decrease,
+    #[strum(to_string = "all normal")]
     AllNormal,
+    #[strum(to_string = "increase")]
     Increase,
+    #[strum(to_string = "all pure")]
     AllPure,
+    #[strum(to_string = "random")]
     AllRandom,
-}
-
-impl Display for NodePuritySettings {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::NoChange => "unchanged",
-            Self::AllPure => "all pure",
-            Self::AllNormal => "all normal",
-            Self::AllImpure => "all impure",
-            Self::AllRandom => "random",
-            Self::Increase => "increase",
-            Self::Decrease => "decrease",
-        })
-    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -68,17 +53,18 @@ impl PartialOrd for ResourceNodeInfo {
 
 impl Ord for ResourceNodeInfo {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.resource == other.resource {
-            if self.purity == other.purity {
-                self.total_throughput.cmp(&other.total_throughput)
-            } else {
-                self.purity.cmp(&other.purity)
-            }
-        } else {
-            self.resource
+        if self.resource != other.resource {
+            return self
+                .resource
                 .get_internal_name()
-                .cmp(other.resource.get_internal_name())
+                .cmp(other.resource.get_internal_name());
         }
+
+        if self.purity != other.purity {
+            return self.purity.cmp(&other.purity);
+        }
+
+        self.total_throughput.cmp(&other.total_throughput)
     }
 }
 
@@ -96,20 +82,16 @@ impl From<&FrackingCore> for ResourceNodeInfo {
     fn from(value: &FrackingCore) -> Self {
         Self {
             resource: value.resource,
-            purity: Some(ResourcePurity::Pure),
+            purity: None,
             total_throughput: value.satellites.iter().map(|s| s.purity as i32).sum(),
         }
     }
 }
 
 pub fn shuffle<T>(rng: &mut RandomStream, node_pool: &mut [T]) {
-    let mut i = 0;
-
-    while i < node_pool.len() - 1 {
-        let swap_index = rng.frand_range(0.0..(node_pool.len() - i) as f32) as usize + i;
+    for i in 0..(node_pool.len() - 1) {
+        let swap_index = i + rng.frand_range(0.0..(node_pool.len() - i) as f32) as usize;
         node_pool.swap(i, swap_index);
-
-        i += 1;
     }
 }
 
@@ -202,10 +184,6 @@ pub fn distribute_throughput(fracking_core: &mut FrackingCore, throughput: i32) 
 
     if error < 1 {
         return;
-    }
-
-    if error > 15 {
-        panic!();
     }
 
     fracking_core
