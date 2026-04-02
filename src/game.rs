@@ -1,7 +1,4 @@
-use std::fmt::Display;
-
 use serde::Deserialize;
-use strum::EnumIter;
 
 #[derive(Clone, Copy, Debug)]
 pub enum GameplayTag {
@@ -10,34 +7,47 @@ pub enum GameplayTag {
     FossilFuel,
 }
 
-#[derive(PartialEq, Eq, Hash, Deserialize, Clone, Copy, Debug, EnumIter)]
+#[derive(PartialEq, Eq, Hash, Deserialize, Clone, Copy, Debug, strum::EnumIter, strum::Display)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum ResourceDescriptor {
     #[serde(rename = "Desc_OreIron_C")]
+    #[strum(to_string = "Iron")]
     OreIron,
     #[serde(rename = "Desc_Coal_C")]
+    #[strum(to_string = "Coal")]
     Coal,
     #[serde(rename = "Desc_OreCopper_C")]
+    #[strum(to_string = "Copper")]
     OreCopper,
     #[serde(rename = "Desc_Stone_C")]
+    #[strum(to_string = "Limestone")]
     Stone,
     #[serde(rename = "Desc_RawQuartz_C")]
+    #[strum(to_string = "Quartz")]
     RawQuartz,
     #[serde(rename = "Desc_LiquidOil_C")]
+    #[strum(to_string = "Crude Oil")]
     LiquidOil,
     #[serde(rename = "Desc_Water_C")]
+    #[strum(to_string = "Water")]
     Water,
     #[serde(rename = "Desc_SAM_C")]
+    #[strum(to_string = "SAM")]
     SAM,
     #[serde(rename = "Desc_NitrogenGas_C")]
+    #[strum(to_string = "Nitrogen Gas")]
     NitrogenGas,
     #[serde(rename = "Desc_OreBauxite_C")]
+    #[strum(to_string = "Bauxite")]
     OreBauxite,
     #[serde(rename = "Desc_OreGold_C")]
+    #[strum(to_string = "Caterium")]
     OreGold,
     #[serde(rename = "Desc_Sulfur_C")]
+    #[strum(to_string = "Sulfur")]
     Sulfur,
     #[serde(rename = "Desc_OreUranium_C")]
+    #[strum(to_string = "Uranium")]
     OreUranium,
 }
 
@@ -58,26 +68,6 @@ impl ResourceDescriptor {
             Self::Sulfur => "Desc_Sulfur_C",
             Self::OreUranium => "Desc_OreUranium_C",
         }
-    }
-}
-
-impl Display for ResourceDescriptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::OreIron => "Iron",
-            Self::Coal => "Coal",
-            Self::OreCopper => "Copper",
-            Self::Stone => "Limestone",
-            Self::RawQuartz => "Quartz",
-            Self::LiquidOil => "Crude Oil",
-            Self::Water => "Water",
-            Self::SAM => "SAM",
-            Self::NitrogenGas => "Nitrogen Gas",
-            Self::OreBauxite => "Bauxite",
-            Self::OreGold => "Caterium",
-            Self::Sulfur => "Sulfur",
-            Self::OreUranium => "Uranium",
-        })
     }
 }
 
@@ -102,7 +92,7 @@ impl ResourceDescriptor {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Deserialize, Clone, Copy, Debug, EnumIter)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Deserialize, Clone, Copy, Debug, strum::EnumIter)]
 pub enum ResourcePurity {
     #[serde(rename = "RP_Inpure")]
     Impure = 1,
