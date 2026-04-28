@@ -1,11 +1,17 @@
-use std::time::{Duration, Instant};
+use std::{
+    ops::RangeInclusive,
+    time::{Duration, Instant},
+};
 
-use egui::{Color32, Layout};
-use egui_plot::{MarkerShape, PlotPoint, Points};
+use egui::{Color32, Layout, PopupAnchor, Pos2, Shape, Stroke, epaint::CircleShape, vec2};
+use egui_plot::{
+    Cursor, MarkerShape, PlotBounds, PlotGeometry, PlotItem, PlotItemBase, PlotPoint, PlotTransform,
+};
+use itertools::Itertools;
 use strum::IntoEnumIterator;
 
 use crate::{
-    game::{ResourceDescriptor, ResourcePurity, World},
+    game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode, ResourcePurity, World},
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
 };
 
@@ -58,25 +64,6 @@ impl App {
     #[cfg(target_arch = "wasm32")]
     fn get_elapsed_duration(start_time: f64) -> Duration {
         Duration::from_secs_f64((Self::get_time() - start_time) / 1000.0)
-    }
-
-    fn get_resource_color(resource: ResourceDescriptor) -> Color32 {
-        Color32::from_hex(match resource {
-            ResourceDescriptor::OreIron => "#975f6a",
-            ResourceDescriptor::Coal => "#15008e",
-            ResourceDescriptor::OreCopper => "#9b4c2b",
-            ResourceDescriptor::Stone => "#56452d",
-            ResourceDescriptor::RawQuartz => "#9f6c99",
-            ResourceDescriptor::SAM => "#502e8e",
-            ResourceDescriptor::OreBauxite => "#68392d",
-            ResourceDescriptor::OreGold => "#af9c72",
-            ResourceDescriptor::Sulfur => "#afaa27",
-            ResourceDescriptor::OreUranium => "#357336",
-            ResourceDescriptor::Water => "#4a88ab",
-            ResourceDescriptor::LiquidOil => "#603560",
-            ResourceDescriptor::NitrogenGas => "#7d8089",
-        })
-        .unwrap()
     }
 }
 
@@ -209,95 +196,376 @@ impl eframe::App for App {
                 let scale = (test_rect.width() + test_rect.height()) / 2.0;
                 let base_size = (5000.0 * scale).clamp(5.0, 20.0);
 
-                for resource in ResourceDescriptor::iter() {
-                    let color = Self::get_resource_color(resource);
+                // resource nodes
+                for (resource, nodes) in &world.resource_nodes.iter().chunk_by(|n| n.resource) {
+                    plot_ui.add(ResourceDisplay::new(
+                        base_size,
+                        ResourceDisplayContent::ResourceNodes(resource, nodes.collect()),
+                    ));
+                }
 
-                    // resource nodes
-                    for purity in ResourcePurity::iter() {
-                        let points = Points::new(
-                            format!("{} ({:?})", resource, purity),
-                            world
-                                .resource_nodes
-                                .iter()
-                                .filter(|n| n.resource == resource && n.purity == purity)
-                                .map(|n| [n.location[0] as f64, n.location[1] as f64])
-                                .collect::<Vec<_>>(),
-                        )
-                        .color(color)
-                        .radius(base_size)
-                        .filled(true)
-                        .shape(match purity {
-                            ResourcePurity::Impure => MarkerShape::Up,
-                            ResourcePurity::Normal => MarkerShape::Diamond,
-                            ResourcePurity::Pure => MarkerShape::Circle,
-                        });
-
-                        plot_ui.points(points);
-                    }
-
-                    // fracking cores
-                    {
-                        let points = Points::new(
-                            format!("{} (Resource Well)", resource),
-                            world
-                                .fracking_cores
-                                .iter()
-                                .filter(|c| c.resource == resource)
-                                .map(|n| [n.location[0] as f64, n.location[1] as f64])
-                                .collect::<Vec<_>>(),
-                        )
-                        .color(color)
-                        .filled(false)
-                        .radius(1.5 * base_size)
-                        .shape(MarkerShape::Circle);
-
-                        plot_ui.points(points);
-                    }
-
-                    // fracking satellites
-                    for purity in ResourcePurity::iter() {
-                        let points = Points::new(
-                            format!("{} (Resource Well)", resource),
-                            world
-                                .fracking_cores
-                                .iter()
-                                .filter(|c| c.resource == resource)
-                                .flat_map(|c| c.satellites.iter())
-                                .filter(|s| s.purity == purity)
-                                .map(|n| [n.location[0] as f64, n.location[1] as f64])
-                                .collect::<Vec<_>>(),
-                        )
-                        .color(color)
-                        .radius(0.75 * base_size)
-                        .filled(false)
-                        .shape(match purity {
-                            ResourcePurity::Impure => MarkerShape::Up,
-                            ResourcePurity::Normal => MarkerShape::Diamond,
-                            ResourcePurity::Pure => MarkerShape::Circle,
-                        });
-
-                        plot_ui.points(points);
-                    }
+                // fracking nodes
+                for (resource, cores) in &world.fracking_cores.iter().chunk_by(|c| c.resource) {
+                    plot_ui.add(ResourceDisplay::new(
+                        base_size,
+                        ResourceDisplayContent::FrackingNodes(resource, cores.collect()),
+                    ));
                 }
 
                 // geysers
-                {
-                    let points = Points::new(
-                        "Geyser",
-                        world
-                            .geysers
-                            .iter()
-                            .map(|n| [n.location[0] as f64, n.location[1] as f64])
-                            .collect::<Vec<_>>(),
-                    )
-                    .color(Self::get_resource_color(ResourceDescriptor::Water))
-                    .filled(false)
-                    .radius(base_size)
-                    .shape(MarkerShape::Asterisk);
-
-                    plot_ui.points(points);
-                }
+                plot_ui.add(ResourceDisplay::new(
+                    base_size,
+                    ResourceDisplayContent::Geysers(world.geysers.iter().by_ref().collect()),
+                ));
             });
+        });
+    }
+}
+
+fn get_resource_color(resource: ResourceDescriptor) -> Color32 {
+    Color32::from_hex(match resource {
+        ResourceDescriptor::OreIron => "#975f6a",
+        ResourceDescriptor::Coal => "#15008e",
+        ResourceDescriptor::OreCopper => "#9b4c2b",
+        ResourceDescriptor::Stone => "#56452d",
+        ResourceDescriptor::RawQuartz => "#9f6c99",
+        ResourceDescriptor::SAM => "#502e8e",
+        ResourceDescriptor::OreBauxite => "#68392d",
+        ResourceDescriptor::OreGold => "#af9c72",
+        ResourceDescriptor::Sulfur => "#afaa27",
+        ResourceDescriptor::OreUranium => "#357336",
+        ResourceDescriptor::Water => "#4a88ab",
+        ResourceDescriptor::LiquidOil => "#603560",
+        ResourceDescriptor::NitrogenGas => "#7d8089",
+    })
+    .unwrap()
+}
+
+fn get_purity_marker(purity: ResourcePurity) -> MarkerShape {
+    match purity {
+        ResourcePurity::Impure => MarkerShape::Up,
+        ResourcePurity::Normal => MarkerShape::Diamond,
+        ResourcePurity::Pure => MarkerShape::Circle,
+    }
+}
+
+enum ResourceDisplayContent<'a> {
+    ResourceNodes(ResourceDescriptor, Vec<&'a ResourceNode>),
+    FrackingNodes(ResourceDescriptor, Vec<&'a FrackingCore>),
+    Geysers(Vec<&'a GeyserNode>),
+}
+
+impl<'a> ResourceDisplayContent<'a> {
+    pub fn get_color(&self) -> Color32 {
+        match self {
+            Self::ResourceNodes(resource, _) | Self::FrackingNodes(resource, _) => {
+                get_resource_color(*resource)
+            }
+            Self::Geysers(_) => get_resource_color(ResourceDescriptor::Water),
+        }
+    }
+
+    fn convert_location(location: [f32; 3]) -> PlotPoint {
+        PlotPoint::new(location[0] as f64, location[1] as f64)
+    }
+
+    pub fn get_points(&self) -> Vec<PlotPoint> {
+        match self {
+            Self::ResourceNodes(_, nodes) => nodes
+                .iter()
+                .map(|n| Self::convert_location(n.location))
+                .collect(),
+
+            Self::FrackingNodes(_, cores) => cores
+                .iter()
+                .flat_map(|c| {
+                    let mut points = Vec::with_capacity(1 + c.satellites.len());
+                    points.push(Self::convert_location(c.location));
+
+                    for s in &c.satellites {
+                        points.push(Self::convert_location(s.location));
+                    }
+
+                    points
+                })
+                .collect(),
+
+            Self::Geysers(geysers) => geysers
+                .iter()
+                .map(|g| Self::convert_location(g.location))
+                .collect(),
+        }
+    }
+}
+
+struct ResourceDisplay<'a> {
+    base: PlotItemBase,
+    geometry_points: Vec<PlotPoint>,
+
+    marker_base_size: f32,
+    content: ResourceDisplayContent<'a>,
+}
+
+impl<'a> ResourceDisplay<'a> {
+    pub fn new(marker_base_size: f32, content: ResourceDisplayContent<'a>) -> Self {
+        let name = match content {
+            ResourceDisplayContent::ResourceNodes(resource, _)
+            | ResourceDisplayContent::FrackingNodes(resource, _) => resource.to_string(),
+            ResourceDisplayContent::Geysers(_) => "Geyser".to_owned(),
+        };
+
+        Self {
+            base: PlotItemBase::new(name),
+            geometry_points: content.get_points(),
+
+            marker_base_size,
+            content,
+        }
+    }
+
+    fn marker_shape(
+        shape: MarkerShape,
+        center: Pos2,
+        radius: f32,
+        color: Color32,
+        filled: bool,
+        shapes: &mut Vec<Shape>,
+    ) {
+        let sqrt_3 = 3_f32.sqrt();
+        let frac_sqrt_3_2 = 3_f32.sqrt() / 2.0;
+
+        let (fill, stroke) = if filled {
+            (color, Stroke::NONE)
+        } else {
+            (Color32::TRANSPARENT, Stroke::new(radius / 5.0, color))
+        };
+
+        let tf = |dx: f32, dy: f32| -> Pos2 { center + radius * vec2(dx, dy) };
+
+        match shape {
+            MarkerShape::Up => {
+                let points = vec![tf(0.0, -1.0), tf(0.5 * sqrt_3, 0.5), tf(-0.5 * sqrt_3, 0.5)];
+                shapes.push(Shape::convex_polygon(points, fill, stroke));
+            }
+            MarkerShape::Diamond => {
+                let points = vec![
+                    tf(0.0, 1.0),  // bottom
+                    tf(-1.0, 0.0), // left
+                    tf(0.0, -1.0), // top
+                    tf(1.0, 0.0),  // right
+                ];
+                shapes.push(Shape::convex_polygon(points, fill, stroke));
+            }
+            MarkerShape::Circle => {
+                shapes.push(Shape::Circle(CircleShape {
+                    center,
+                    radius,
+                    fill,
+                    stroke,
+                }));
+            }
+            MarkerShape::Asterisk => {
+                let vertical = [tf(0.0, -1.0), tf(0.0, 1.0)];
+                let diagonal1 = [tf(-frac_sqrt_3_2, 0.5), tf(frac_sqrt_3_2, -0.5)];
+                let diagonal2 = [tf(-frac_sqrt_3_2, -0.5), tf(frac_sqrt_3_2, 0.5)];
+                shapes.push(Shape::line_segment(vertical, stroke));
+                shapes.push(Shape::line_segment(diagonal1, stroke));
+                shapes.push(Shape::line_segment(diagonal2, stroke));
+            }
+            _ => (),
+        }
+    }
+}
+
+impl<'a> PlotItem for ResourceDisplay<'a> {
+    fn shapes(&self, _ui: &egui::Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
+        let scale = if self.highlighted() { 2f32.sqrt() } else { 1.0 };
+        let color = self.color();
+
+        match &self.content {
+            ResourceDisplayContent::ResourceNodes(_, nodes) => {
+                for node in nodes {
+                    let center = transform.position_from_point(
+                        &ResourceDisplayContent::convert_location(node.location),
+                    );
+                    Self::marker_shape(
+                        get_purity_marker(node.purity),
+                        center,
+                        self.marker_base_size * scale,
+                        color,
+                        true,
+                        shapes,
+                    );
+                }
+            }
+
+            ResourceDisplayContent::FrackingNodes(_, cores) => {
+                for core in cores {
+                    let center = transform.position_from_point(
+                        &ResourceDisplayContent::convert_location(core.location),
+                    );
+
+                    Self::marker_shape(
+                        MarkerShape::Circle,
+                        center,
+                        1.5 * self.marker_base_size * scale,
+                        color,
+                        false,
+                        shapes,
+                    );
+
+                    for satellite in &core.satellites {
+                        let center = transform.position_from_point(
+                            &ResourceDisplayContent::convert_location(satellite.location),
+                        );
+
+                        Self::marker_shape(
+                            get_purity_marker(satellite.purity),
+                            center,
+                            0.75 * self.marker_base_size * scale,
+                            color,
+                            false,
+                            shapes,
+                        );
+                    }
+                }
+            }
+
+            ResourceDisplayContent::Geysers(geysers) => {
+                for geyser in geysers {
+                    let center = transform.position_from_point(
+                        &ResourceDisplayContent::convert_location(geyser.location),
+                    );
+
+                    Self::marker_shape(
+                        MarkerShape::Asterisk,
+                        center,
+                        self.marker_base_size * scale,
+                        color,
+                        false,
+                        shapes,
+                    );
+                }
+            }
+        }
+    }
+
+    fn initialize(&mut self, _x_range: RangeInclusive<f64>) {}
+
+    fn color(&self) -> Color32 {
+        self.content.get_color()
+    }
+
+    fn geometry(&self) -> PlotGeometry<'_> {
+        PlotGeometry::Points(&self.geometry_points)
+    }
+
+    fn bounds(&self) -> PlotBounds {
+        let mut bounds = PlotBounds::NOTHING;
+        for p in &self.geometry_points {
+            bounds.extend_with(p);
+        }
+
+        bounds
+    }
+
+    fn base(&self) -> &PlotItemBase {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut PlotItemBase {
+        &mut self.base
+    }
+
+    fn on_hover(
+        &self,
+        plot_area_response: &egui::Response,
+        elem: egui_plot::ClosestElem,
+        shapes: &mut Vec<Shape>,
+        cursors: &mut Vec<egui_plot::Cursor>,
+        plot: &egui_plot::PlotConfig<'_>,
+        _label_formatter: &egui_plot::LabelFormatter<'_>,
+    ) {
+        let line_color = if plot.ui.visuals().dark_mode {
+            Color32::from_gray(100).additive()
+        } else {
+            Color32::from_black_alpha(180)
+        };
+
+        let value = self.geometry_points[elem.index];
+        let pointer = plot.transform.position_from_point(&value);
+        shapes.push(Shape::circle_filled(pointer, 3.0, line_color));
+
+        if plot.show_x {
+            cursors.push(Cursor::Vertical { x: value.x });
+        }
+        if plot.show_y {
+            cursors.push(Cursor::Horizontal { y: value.y });
+        }
+
+        let mut tooltip = egui::Tooltip::always_open(
+            plot_area_response.ctx.clone(),
+            plot_area_response.layer_id,
+            plot_area_response.id,
+            PopupAnchor::Pointer,
+        );
+
+        let tooltip_width = plot_area_response.ctx.style().spacing.tooltip_width;
+
+        tooltip.popup = tooltip.popup.width(tooltip_width);
+
+        tooltip.gap(12.0).show(|ui| {
+            ui.set_max_width(tooltip_width);
+
+            let location = match &self.content {
+                ResourceDisplayContent::ResourceNodes(_, nodes) => {
+                    let node = nodes[elem.index];
+
+                    ui.label(format!("{} ({:?})", node.resource, node.purity));
+                    node.location
+                }
+                ResourceDisplayContent::FrackingNodes(_, cores) => {
+                    let mut index = elem.index;
+
+                    let mut location = [0f32; 3];
+                    for core in cores {
+                        if index == 0 {
+                            ui.label(format!("{} (Resource Well)", core.resource));
+
+                            location = core.location;
+                            break;
+                        }
+
+                        index -= 1;
+
+                        if index < core.satellites.len() {
+                            let satellite = &core.satellites[index];
+                            ui.label(format!(
+                                "{} ({:?} Resource Well)",
+                                core.resource, satellite.purity
+                            ));
+
+                            location = satellite.location;
+                            break;
+                        }
+
+                        index -= core.satellites.len();
+                    }
+
+                    location
+                }
+                ResourceDisplayContent::Geysers(geysers) => {
+                    let geyser = geysers[elem.index];
+
+                    ui.label(format!("Geyser ({:?})", geyser.purity));
+                    geyser.location
+                }
+            };
+
+            ui.label(format!(
+                "x = {:.1}\ny = {:.1}\nz = {:.1}",
+                location[0], location[1], location[2],
+            ));
         });
     }
 }
