@@ -24,6 +24,7 @@ env_logger = "0.11.8"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.50"
 web-sys = "0.3.70"
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
 
 [profile.release]
 opt-level = 2
