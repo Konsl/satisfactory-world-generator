@@ -102,6 +102,16 @@ pub enum ResourcePurity {
     Pure = 4,
 }
 
+impl ResourcePurity {
+    fn get_factor(&self) -> f32 {
+        match self {
+            Self::Impure => 0.5,
+            Self::Normal => 1.0,
+            Self::Pure => 2.0,
+        }
+    }
+}
+
 pub type Vector = [f32; 3];
 
 #[derive(Deserialize, Clone, Debug)]
@@ -141,4 +151,37 @@ pub struct World {
     pub resource_nodes: Vec<ResourceNode>,
     pub geysers: Vec<GeyserNode>,
     pub fracking_cores: Vec<FrackingCore>,
+}
+
+impl World {
+    pub fn get_extraction_rate(
+        &self,
+        resource: ResourceDescriptor,
+        global_factor: f32,
+        miner_factor: f32,
+    ) -> f32 {
+        let node_extraction_rate = if resource == ResourceDescriptor::LiquidOil {
+            120.0
+        } else {
+            miner_factor * 60.0
+        };
+
+        let nodes_total_rate = node_extraction_rate
+            * self
+                .resource_nodes
+                .iter()
+                .filter(|n| n.resource == resource)
+                .map(|n| n.purity.get_factor())
+                .sum::<f32>();
+
+        let fracking_total_rate = 60.0
+            * self
+                .fracking_cores
+                .iter()
+                .filter(|c| c.resource == resource)
+                .flat_map(|c| c.satellites.iter().map(|s| s.purity.get_factor()))
+                .sum::<f32>();
+
+        global_factor * (nodes_total_rate + fracking_total_rate)
+    }
 }

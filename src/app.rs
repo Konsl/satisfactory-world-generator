@@ -1,11 +1,17 @@
 use std::{
+    collections::HashMap,
     ops::RangeInclusive,
     time::{Duration, Instant},
 };
 
-use egui::{Color32, Layout, PopupAnchor, Pos2, Shape, Stroke, epaint::CircleShape, vec2};
+use eframe::wgpu::wgc::device::resource;
+use egui::{
+    Color32, Layout, PopupAnchor, Pos2, RichText, Shape, Stroke, epaint::CircleShape, vec2,
+};
+use egui_extras::{Column, TableBuilder};
 use egui_plot::{
-    Cursor, MarkerShape, PlotBounds, PlotGeometry, PlotItem, PlotItemBase, PlotPoint, PlotTransform,
+    Cursor, LabelFormatter, MarkerShape, PlotBounds, PlotGeometry, PlotItem, PlotItemBase,
+    PlotPoint, PlotTransform,
 };
 use itertools::Itertools;
 use strum::IntoEnumIterator;
@@ -15,12 +21,25 @@ use crate::{
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
 };
 
+#[derive(PartialEq, Eq, Clone, Copy, strum::EnumIter, strum::Display)]
+enum SidePanel {
+    #[strum(to_string = "View Options")]
+    ViewOptions,
+    #[strum(to_string = "Statistics")]
+    Stats,
+}
+
+type Stats = HashMap<(u8, u8, ResourceDescriptor), f32>;
+
 pub struct App {
     seed: Option<i32>,
     randomization_mode: NodeRandomizationMode,
     purity_settings: NodePuritySettings,
 
+    side_panel: SidePanel,
+
     world: Option<World>,
+    stats: Stats,
     last_calc_duration: Duration,
 }
 
@@ -31,7 +50,10 @@ impl Default for App {
             randomization_mode: NodeRandomizationMode::None,
             purity_settings: NodePuritySettings::NoChange,
 
+            side_panel: SidePanel::ViewOptions,
+
             world: None,
+            stats: Stats::new(),
             last_calc_duration: Duration::ZERO,
         }
     }
@@ -68,13 +90,93 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        ctx.style_mut(|style| style.interaction.selectable_labels = false);
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        ui.global_style_mut(|style| style.interaction.selectable_labels = false);
 
-        egui::SidePanel::right("settings_panel")
+        egui::Panel::right("settings_panel")
             .resizable(true)
-            .min_width(350.0)
-            .show(ctx, |ui| {
+            .min_size(400.0)
+            .show_inside(ui, |ui| {
+                egui::Panel::bottom("stats_panel")
+                    .resizable(true)
+                    .min_size(350.0)
+                    .show_inside(ui, |ui| {
+                        ui.take_available_space();
+                        ui.add_space(5.0);
+
+                        ui.horizontal(|ui| {
+                            SidePanel::iter().for_each(|v| {
+                                ui.selectable_value(&mut self.side_panel, v, v.to_string());
+                            })
+                        });
+                        ui.separator();
+
+                        match self.side_panel {
+                            SidePanel::ViewOptions => {
+                                ui.label("view sth or dont idfc");
+                            }
+
+                            SidePanel::Stats => {
+                                let available_height = ui.available_height();
+                                let table = TableBuilder::new(ui)
+                                    .striped(true)
+                                    .resizable(false)
+                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                                    .column(Column::remainder())
+                                    .column(Column::auto())
+                                    .column(Column::auto())
+                                    .column(Column::auto())
+                                    .column(Column::auto())
+                                    .column(Column::auto())
+                                    .column(Column::auto())
+                                    .min_scrolled_height(0.0)
+                                    .max_scroll_height(available_height);
+
+                                table
+                                    .header(20.0, |mut header| {
+                                        header.col(|ui| {
+                                            ui.strong("Resource");
+                                        });
+
+                                        for mk in 1..=3 {
+                                            for rate in [100, 250] {
+                                                header.col(|ui| {
+                                                    ui.strong(format!("Mk. {}\n{} %", mk, rate));
+                                                });
+                                            }
+                                        }
+                                    })
+                                    .body(|mut body| {
+                                        for resource in ResourceDescriptor::iter() {
+                                            body.row(18.0, |mut row| {
+                                                row.col(|ui| {
+                                                    ui.label(
+                                                        RichText::new("\u{23FA}")
+                                                            .color(get_resource_color(resource)),
+                                                    );
+                                                    ui.label(resource.to_string());
+                                                });
+
+                                                for mk in 1..=3 {
+                                                    for rate in [100, 250] {
+                                                        let amount = self
+                                                            .stats
+                                                            .get(&(rate, mk, resource))
+                                                            .copied()
+                                                            .unwrap_or(0.0);
+
+                                                        row.col(|ui| {
+                                                            ui.label(format!("{}", amount));
+                                                        });
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                            }
+                        }
+                    });
+
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.heading("Randomization Settings");
 
@@ -97,7 +199,7 @@ impl eframe::App for App {
 
                                 if seed_text.is_empty() {
                                     self.seed = None;
-                                } else if let Ok(seed) = seed_text.parse::<i32>() {
+                                } else if let Ok(seed) = seed_text.trim().parse::<i32>() {
                                     self.seed = Some(seed);
                                 }
 
@@ -162,11 +264,28 @@ impl eframe::App for App {
                 self.purity_settings,
             );
 
+            let mut stats = Stats::new();
+            for resource in ResourceDescriptor::iter() {
+                for factor in [100, 250] {
+                    for miner_mk in 1..=3 {
+                        stats.insert(
+                            (factor, miner_mk, resource),
+                            world.get_extraction_rate(
+                                resource,
+                                factor as f32 / 100.0,
+                                2f32.powi(miner_mk as i32 - 1),
+                            ),
+                        );
+                    }
+                }
+            }
+            self.stats = stats;
+
             self.last_calc_duration = Self::get_elapsed_duration(start_time);
             world
         });
 
-        egui::TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
+        egui::Panel::bottom("status_panel").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 if !self.last_calc_duration.is_zero() {
                     ui.label(format!(
@@ -181,7 +300,7 @@ impl eframe::App for App {
             })
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             let plot = egui_plot::Plot::new("main_display_plot")
                 .legend(egui_plot::Legend::default())
                 .show_axes(true)
@@ -484,7 +603,7 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
         shapes: &mut Vec<Shape>,
         cursors: &mut Vec<egui_plot::Cursor>,
         plot: &egui_plot::PlotConfig<'_>,
-        _label_formatter: &egui_plot::LabelFormatter<'_>,
+        _label_formatter: &Option<LabelFormatter<'_>>,
     ) {
         let line_color = if plot.ui.visuals().dark_mode {
             Color32::from_gray(100).additive()
@@ -496,12 +615,8 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
         let pointer = plot.transform.position_from_point(&value);
         shapes.push(Shape::circle_filled(pointer, 3.0, line_color));
 
-        if plot.show_x {
-            cursors.push(Cursor::Vertical { x: value.x });
-        }
-        if plot.show_y {
-            cursors.push(Cursor::Horizontal { y: value.y });
-        }
+        cursors.push(Cursor::Vertical { x: value.x });
+        cursors.push(Cursor::Horizontal { y: value.y });
 
         let mut tooltip = egui::Tooltip::always_open(
             plot_area_response.ctx.clone(),
@@ -510,7 +625,7 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
             PopupAnchor::Pointer,
         );
 
-        let tooltip_width = plot_area_response.ctx.style().spacing.tooltip_width;
+        let tooltip_width = plot_area_response.ctx.global_style().spacing.tooltip_width;
 
         tooltip.popup = tooltip.popup.width(tooltip_width);
 
