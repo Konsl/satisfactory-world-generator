@@ -4,7 +4,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use eframe::wgpu::wgc::device::resource;
 use egui::{
     Color32, Layout, PopupAnchor, Pos2, RichText, Shape, Stroke, epaint::CircleShape, vec2,
 };
@@ -188,20 +187,36 @@ impl eframe::App for App {
                             .show(ui, |ui| {
                                 ui.label("Seed");
 
-                                let mut seed_text =
-                                    self.seed.map(|seed| seed.to_string()).unwrap_or_default();
-                                if ui
-                                    .add(egui::TextEdit::singleline(&mut seed_text).hint_text("0"))
-                                    .changed()
-                                {
-                                    self.world = None;
-                                }
+                                ui.with_layout(
+                                    Layout::right_to_left(egui::Align::Center)
+                                        .with_cross_justify(true),
+                                    |ui| {
+                                        let randomize_seed =
+                                            ui.button("\u{1F3B2} random").clicked();
+                                        let mut seed_text = self
+                                            .seed
+                                            .map(|seed| seed.to_string())
+                                            .unwrap_or_default();
+                                        if ui
+                                            .add(
+                                                egui::TextEdit::singleline(&mut seed_text)
+                                                    .hint_text("0"),
+                                            )
+                                            .changed()
+                                        {
+                                            self.world = None;
+                                        }
 
-                                if seed_text.is_empty() {
-                                    self.seed = None;
-                                } else if let Ok(seed) = seed_text.trim().parse::<i32>() {
-                                    self.seed = Some(seed);
-                                }
+                                        if randomize_seed {
+                                            self.seed = Some(rand::random());
+                                            self.world = None;
+                                        } else if seed_text.is_empty() {
+                                            self.seed = None;
+                                        } else if let Ok(seed) = seed_text.trim().parse::<i32>() {
+                                            self.seed = Some(seed);
+                                        }
+                                    },
+                                );
 
                                 ui.end_row();
 
