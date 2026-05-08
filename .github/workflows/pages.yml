@@ -25,6 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: download default world data
+        env:
+          DEFAULT_WORLD_URL: ${{ secrets.DEFAULT_WORLD_URL }}
         run: wget -q -O "src/default-world.json" "$DEFAULT_WORLD_URL" && echo "downloaded default-world.json" || echo "could not download default-world.json"
       - name: setup toolchain for wasm
         run: |
