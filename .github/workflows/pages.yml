@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: download default world data
+        run: wget -q -O "src/default-world.json" "$DEFAULT_WORLD_URL" && echo "downloaded default-world.json" || echo "could not download default-world.json"
       - name: setup toolchain for wasm
         run: |
           rustup update stable
