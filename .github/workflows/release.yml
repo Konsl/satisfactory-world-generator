@@ -20,6 +20,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: true
+      - name: download default world data
+        env:
+          DEFAULT_WORLD_URL: ${{ secrets.DEFAULT_WORLD_URL }}
+        run: wget -q -O "src/default-world.json" "$DEFAULT_WORLD_URL" && echo "downloaded default-world.json" || echo "could not download default-world.json"
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -68,6 +72,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: true
+      - name: download default world data
+        env:
+          DEFAULT_WORLD_URL: ${{ secrets.DEFAULT_WORLD_URL }}
+        run: wget -q -O "src/default-world.json" "$DEFAULT_WORLD_URL" && echo "downloaded default-world.json" || echo "could not download default-world.json"
 
       - name: Install ${{ matrix.rust }} toolchain
         uses: actions-rs/toolchain@v1
