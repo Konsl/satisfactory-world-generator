@@ -1,8 +1,13 @@
 # Satisfactory World Generator
 program to simulate the random game mode's randomized node distribution introduced in 1.2
 
-![screenshot](screenshot.png)
+## Usage
 
+**You can try it [HERE](https://konsl.github.io/satisfactory-world-generator/)**
+
+Look in [Releases](https://github.com/Konsl/satisfactory-world-generator/releases/latest) to use the tool locally.
+
+![screenshot](screenshot.png)
 you need to provide a JSON file of the resources present in the default world, which can be generated from the game assets using `scripts/`
 
 ## Inaccuracies
