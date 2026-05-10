@@ -5,10 +5,8 @@ program to simulate the random game mode's randomized node distribution introduc
 
 **You can try it [HERE](https://konsl.github.io/satisfactory-world-generator/)**
 
-Look in [Releases](https://github.com/Konsl/satisfactory-world-generator/releases/latest) to use the tool locally.
-
 ![screenshot](screenshot.png)
-you need to provide a JSON file of the resources present in the default world, which can be generated from the game assets using `scripts/`
+Look in [Releases](https://github.com/Konsl/satisfactory-world-generator/releases/latest) to use the tool locally
 
 ## Inaccuracies
 
@@ -21,3 +19,8 @@ if you notice that the output of this program does not match what you see in gam
 - description of the mismatch between game and this tool (if not obvious)
 - (preferrably) a screenshot of the generated node distribution
 
+## Build Instructions - **ONLY FOR EXPERTS**
+
+- Clone this repo
+- You need to provide `src/default-world.json`, which describes the resources present in the default world and can be generated from the game assets using `scripts/`
+- Run `cargo run` to start the tool
