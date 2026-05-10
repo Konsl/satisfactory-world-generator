@@ -10,6 +10,9 @@ Look in [Releases](https://github.com/Konsl/satisfactory-world-generator/release
 
 ## Inaccuracies
 
+**NOTE**: if you created your world on build `480321` (first 1.2 exp build), this program's output will **not** match your world
+(because that version was missing a limestone node, which was fixed in the following release)
+
 if you notice that the output of this program does not match what you see in game, open an issue containing the following:
 
 - game version: version code (`vx.x.x.x`), branch (`main` / `experimental`), **build number** (e.g. `481836`, should be visible somewhere in game, maybe title screen? if you dont know, at least provide the release date of the patch)
