@@ -7,7 +7,10 @@ use egui_plot::{
 };
 
 use crate::{
-    app::constants::{get_purity_marker, get_resource_color},
+    app::{
+        constants::{get_purity_marker, get_resource_color},
+        view_options::ViewOptions,
+    },
     game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode},
 };
 
@@ -66,10 +69,16 @@ pub struct ResourceDisplay<'a> {
 
     marker_base_size: f32,
     content: ResourceDisplayContent<'a>,
+
+    view_options: &'a ViewOptions,
 }
 
 impl<'a> ResourceDisplay<'a> {
-    pub fn new(marker_base_size: f32, content: ResourceDisplayContent<'a>) -> Self {
+    pub fn new(
+        marker_base_size: f32,
+        content: ResourceDisplayContent<'a>,
+        view_options: &'a ViewOptions,
+    ) -> Self {
         let name = match content {
             ResourceDisplayContent::ResourceNodes(resource, _)
             | ResourceDisplayContent::FrackingNodes(resource, _) => resource.to_string(),
@@ -82,6 +91,8 @@ impl<'a> ResourceDisplay<'a> {
 
             marker_base_size,
             content,
+
+            view_options,
         }
     }
 
@@ -145,8 +156,15 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
         let color = self.color();
 
         match &self.content {
-            ResourceDisplayContent::ResourceNodes(_, nodes) => {
+            ResourceDisplayContent::ResourceNodes(resource, nodes) => {
                 for node in nodes {
+                    if !self
+                        .view_options
+                        .should_display_nodes(*resource, node.purity)
+                    {
+                        continue;
+                    }
+
                     let center = transform.position_from_point(
                         &ResourceDisplayContent::convert_location(node.location),
                     );
@@ -161,7 +179,11 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                 }
             }
 
-            ResourceDisplayContent::FrackingNodes(_, cores) => {
+            ResourceDisplayContent::FrackingNodes(resource, cores) => {
+                if !self.view_options.should_display_fracking(*resource) {
+                    return;
+                }
+
                 for core in cores {
                     let center = transform.position_from_point(
                         &ResourceDisplayContent::convert_location(core.location),
@@ -194,6 +216,10 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
             }
 
             ResourceDisplayContent::Geysers(geysers) => {
+                if !self.view_options.should_display_geysers() {
+                    return;
+                }
+
                 for geyser in geysers {
                     let center = transform.position_from_point(
                         &ResourceDisplayContent::convert_location(geyser.location),
