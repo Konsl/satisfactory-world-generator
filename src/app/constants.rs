@@ -29,4 +29,3 @@ pub fn get_purity_marker(purity: ResourcePurity) -> MarkerShape {
         ResourcePurity::Pure => MarkerShape::Circle,
     }
 }
-

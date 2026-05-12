@@ -1,9 +1,15 @@
 use std::ops::RangeInclusive;
 
 use egui::{Color32, PopupAnchor, Pos2, Shape, Stroke, epaint::CircleShape, vec2};
-use egui_plot::{Cursor, LabelFormatter, MarkerShape, PlotBounds, PlotGeometry, PlotItem, PlotItemBase, PlotPoint, PlotTransform};
+use egui_plot::{
+    Cursor, LabelFormatter, MarkerShape, PlotBounds, PlotGeometry, PlotItem, PlotItemBase,
+    PlotPoint, PlotTransform,
+};
 
-use crate::{app::constants::{get_purity_marker, get_resource_color}, game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode}};
+use crate::{
+    app::constants::{get_purity_marker, get_resource_color},
+    game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode},
+};
 
 pub enum ResourceDisplayContent<'a> {
     ResourceNodes(ResourceDescriptor, Vec<&'a ResourceNode>),
@@ -321,4 +327,3 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
         });
     }
 }
-
