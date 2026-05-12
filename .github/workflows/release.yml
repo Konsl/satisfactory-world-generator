@@ -72,10 +72,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: true
-      - name: download default world data
+      - name: download default world data (non windows)
+        if: matrix.build != 'x86_64-windows'
         env:
           DEFAULT_WORLD_URL: ${{ secrets.DEFAULT_WORLD_URL }}
         run: curl -L "$DEFAULT_WORLD_URL" --output "src/default-world.json" && echo "downloaded default-world.json" || echo "could not download default-world.json"
+      - name: download default world data (windows)
+        if: matrix.build == 'x86_64-windows'
+        env:
+          DEFAULT_WORLD_URL: ${{ secrets.DEFAULT_WORLD_URL }}
+        run: curl -L "$env:DEFAULT_WORLD_URL" --output "src/default-world.json" && echo "downloaded default-world.json" || echo "could not download default-world.json"
 
       - name: Install ${{ matrix.rust }} toolchain
         uses: actions-rs/toolchain@v1
