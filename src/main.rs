@@ -6,6 +6,7 @@ mod app;
 mod game;
 mod random_stream;
 mod randomization;
+mod stats;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {

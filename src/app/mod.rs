@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use egui::{Layout, RichText};
 use egui_extras::{Column, TableBuilder};
@@ -10,7 +7,13 @@ use itertools::Itertools;
 use strum::IntoEnumIterator;
 
 use crate::{
-    app::{constants::get_resource_color, plot_item::{ResourceDisplay, ResourceDisplayContent}}, game::{ResourceDescriptor, World}, randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings}
+    app::{
+        constants::get_resource_color,
+        plot_item::{ResourceDisplay, ResourceDisplayContent},
+    },
+    game::{ResourceDescriptor, World},
+    randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
+    stats::Stats,
 };
 
 mod constants;
@@ -23,8 +26,6 @@ enum SidePanel {
     #[strum(to_string = "Statistics")]
     Stats,
 }
-
-type Stats = HashMap<(u8, u8, ResourceDescriptor), f32>;
 
 pub struct App {
     seed: Option<i32>,
@@ -154,11 +155,8 @@ impl eframe::App for App {
 
                                                 for mk in 1..=3 {
                                                     for rate in [100, 250] {
-                                                        let amount = self
-                                                            .stats
-                                                            .get(&(rate, mk, resource))
-                                                            .copied()
-                                                            .unwrap_or(0.0);
+                                                        let amount =
+                                                            self.stats.get(rate, mk, resource);
 
                                                         row.col(|ui| {
                                                             ui.label(format!("{}", amount));
@@ -274,23 +272,7 @@ impl eframe::App for App {
                 self.randomization_mode,
                 self.purity_settings,
             );
-
-            let mut stats = Stats::new();
-            for resource in ResourceDescriptor::iter() {
-                for factor in [100, 250] {
-                    for miner_mk in 1..=3 {
-                        stats.insert(
-                            (factor, miner_mk, resource),
-                            world.get_extraction_rate(
-                                resource,
-                                factor as f32 / 100.0,
-                                2f32.powi(miner_mk as i32 - 1),
-                            ),
-                        );
-                    }
-                }
-            }
-            self.stats = stats;
+            self.stats.compute(&world);
 
             self.last_calc_duration = Self::get_elapsed_duration(start_time);
             world
