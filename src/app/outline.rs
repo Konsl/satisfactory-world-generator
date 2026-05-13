@@ -56,8 +56,9 @@ pub struct WorldOutlinePlotItem<'a> {
 }
 
 impl<'a> PlotItem for WorldOutlinePlotItem<'a> {
-    fn shapes(&self, _ui: &Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
-        let stroke = Stroke::new(1.5, self.color());
+    fn shapes(&self, ui: &Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
+        let color = ui.visuals().text_color();
+        let stroke = Stroke::new(1.5, color);
 
         for line in self.data.lines.iter() {
             let mut points = line
