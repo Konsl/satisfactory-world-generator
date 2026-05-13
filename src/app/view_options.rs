@@ -6,7 +6,9 @@ use strum::IntoEnumIterator;
 use crate::game::{ResourceDescriptor, ResourcePurity};
 
 pub struct ViewOptions {
+    world_outline_visible: bool,
     geysers_visible: bool,
+
     /// impure, normal, pure, fracking
     visible_items: HashMap<ResourceDescriptor, [bool; 4]>,
 }
@@ -19,7 +21,9 @@ impl ViewOptions {
 
     pub fn new() -> Self {
         Self {
+            world_outline_visible: true,
             geysers_visible: true,
+
             visible_items: ResourceDescriptor::iter()
                 .map(|r| (r, Self::ALL_VISIBLE))
                 .collect(),
@@ -39,6 +43,7 @@ impl ViewOptions {
             .filter(|&r| !self.is_resource_visible(r))
             .map(|r| egui::Id::new(r.to_string()))
             .chain((!self.geysers_visible).then(|| egui::Id::new("Geyser")))
+            .chain((!self.world_outline_visible).then(|| egui::Id::new("World Outline")))
             .collect()
     }
 
@@ -48,6 +53,7 @@ impl ViewOptions {
         };
 
         self.geysers_visible = !mem.hidden_items.contains(&egui::Id::new("Geyser"));
+        self.world_outline_visible = !mem.hidden_items.contains(&egui::Id::new("World Outline"));
 
         for resource in ResourceDescriptor::iter() {
             self.enable_resource(
@@ -88,6 +94,10 @@ impl ViewOptions {
         self.visible_items
             .get(&resource)
             .is_some_and(|v| !v.iter().all(|&v| v))
+    }
+
+    pub fn world_outline_visible_mut(&mut self) -> &mut bool {
+        &mut self.world_outline_visible
     }
 
     pub fn geysers_visible_mut(&mut self) -> &mut bool {

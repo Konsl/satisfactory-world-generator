@@ -28,6 +28,10 @@ jobs:
         env:
           DEFAULT_WORLD_URL: ${{ secrets.DEFAULT_WORLD_URL }}
         run: curl -L "$DEFAULT_WORLD_URL" --output "src/default-world.json" && echo "downloaded default-world.json" || echo "could not download default-world.json"
+      - name: download world outline data
+        env:
+          WORLD_OUTLINE_URL: ${{ secrets.WORLD_OUTLINE_URL }}
+        run: curl -L "$WORLD_OUTLINE_URL" --output "src/world-outline.json" && echo "downloaded world-outline.json" || echo "could not download world-outline.json"
       - name: setup toolchain for wasm
         run: |
           rustup update stable

@@ -12,6 +12,7 @@ use strum::IntoEnumIterator;
 use crate::{
     app::{
         constants::get_resource_color,
+        outline::WorldOutline,
         plot_item::{ResourceDisplay, ResourceDisplayContent},
         view_options::ViewOptions,
     },
@@ -41,6 +42,8 @@ pub struct App {
 
     plot_id: egui::Id,
     view_options: ViewOptions,
+
+    outline: WorldOutline,
 }
 
 impl Default for App {
@@ -58,6 +61,8 @@ impl Default for App {
 
             plot_id: egui::Id::new("map_display_plot"),
             view_options: ViewOptions::new(),
+
+            outline: WorldOutline::new(),
         }
     }
 }
@@ -102,7 +107,8 @@ impl eframe::App for App {
             .show_inside(ui, |ui| {
                 egui::Panel::bottom("stats_panel")
                     .resizable(true)
-                    .min_size(360.0)
+                    .min_size(200.0)
+                    .default_size(380.0)
                     .show_inside(ui, |ui| {
                         ui.take_available_space();
                         ui.add_space(5.0);
@@ -116,6 +122,11 @@ impl eframe::App for App {
 
                         match self.side_panel {
                             SidePanel::ViewOptions => {
+                                ui.checkbox(
+                                    self.view_options.world_outline_visible_mut(),
+                                    "Show World Outline",
+                                );
+
                                 ui.checkbox(
                                     self.view_options.geysers_visible_mut(),
                                     "Show Geysers",
@@ -426,6 +437,8 @@ impl eframe::App for App {
                 .id(self.plot_id);
 
             plot.show(ui, |plot_ui| {
+                plot_ui.add(self.outline.plot_item());
+
                 let test_rect = plot_ui
                     .transform()
                     .rect_from_values(&PlotPoint::new(0.0, 0.0), &PlotPoint::new(1.0, 1.0));

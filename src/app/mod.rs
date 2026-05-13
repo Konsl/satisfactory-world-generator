@@ -1,4 +1,5 @@
 mod constants;
+mod outline;
 mod plot_item;
 mod ui;
 mod view_options;

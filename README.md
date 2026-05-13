@@ -26,4 +26,6 @@ if you notice that the output of this program does not match what you see in gam
 
 - Clone this repo
 - You need to provide `src/default-world.json`, which describes the resources present in the default world and can be generated from the game assets using `scripts/`
+- You need to provide `src/world-outline.json`, which describes the outline of the map and is used as a background graphic.
+  This was created manually by masking + redrawing and then tracing the in-game map image. Just put an empty array.
 - Run `cargo run` to start the tool
