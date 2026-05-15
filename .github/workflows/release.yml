@@ -112,12 +112,16 @@ jobs:
           use-cross: ${{ matrix.cross }}
           command: build
           args: --release --target ${{ matrix.target }}
+        env:
+          PUBLIC_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
 
       - name: Build release binary (windows)
         if: matrix.build == 'x86_64-windows'
         run: |
           $env:RUSTFLAGS = "-Csymbol-mangling-version=v0"
           cargo build --release --target ${{ matrix.target }}
+        env:
+          PUBLIC_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
 
       - name: Strip release binary (linux and macos)
         if: matrix.build == 'x86_64-linux' || matrix.build == 'x86_64-macos'

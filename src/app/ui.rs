@@ -3,11 +3,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use egui::{Checkbox, Layout, RichText};
+use egui::{Align, Checkbox, Layout, RichText};
 use egui_extras::{Column, TableBuilder};
 use egui_plot::PlotPoint;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
+use url::Url;
 
 use crate::{
     app::{
@@ -20,6 +22,13 @@ use crate::{
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
     stats::Stats,
 };
+
+#[derive(Serialize, Deserialize)]
+struct QueryParams {
+    seed: i32,
+    mode: NodeRandomizationMode,
+    purity: NodePuritySettings,
+}
 
 #[derive(PartialEq, Eq, Clone, Copy, strum::EnumIter, strum::Display)]
 enum SidePanel {
@@ -68,8 +77,41 @@ impl Default for App {
 }
 
 impl App {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Default::default()
+    pub const PUBLIC_URL: Option<&'static str> = option_env!("PUBLIC_URL");
+
+    pub fn new(_cc: &eframe::CreationContext<'_>, startup_url: Option<&str>) -> Self {
+        if let Some(params) = startup_url
+            .and_then(|url| Url::parse(url).ok())
+            .and_then(|url| serde_urlencoded::from_str::<QueryParams>(url.query()?).ok())
+        {
+            Self {
+                seed: Some(params.seed),
+                randomization_mode: params.mode,
+                purity_settings: params.purity,
+
+                ..Default::default()
+            }
+        } else {
+            Default::default()
+        }
+    }
+
+    pub const fn supports_share_link() -> bool {
+        Self::PUBLIC_URL.is_some()
+    }
+
+    pub fn create_share_link(&self) -> Option<String> {
+        let params = QueryParams {
+            seed: self.seed.unwrap_or(0),
+            mode: self.randomization_mode,
+            purity: self.purity_settings,
+        };
+        let query_str = serde_urlencoded::to_string(params).ok()?;
+
+        let mut url = Url::parse(Self::PUBLIC_URL?).ok()?;
+        url.set_query(Some(&query_str));
+
+        Some(url.to_string())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -304,6 +346,7 @@ impl eframe::App for App {
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     ui.heading("Randomization Settings");
+                    ui.add_space(5.0);
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         egui::Grid::new("settings_grid")
@@ -389,6 +432,18 @@ impl eframe::App for App {
                                 ui.end_row();
                             });
                     });
+
+                    if Self::supports_share_link() {
+                        ui.add_space(15.0);
+
+                        ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                            if ui.button("\u{1F4CB} copy share url").clicked()
+                                && let Some(link) = self.create_share_link()
+                            {
+                                ui.copy_text(link);
+                            }
+                        });
+                    }
                 });
             });
 

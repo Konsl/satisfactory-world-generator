@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use strum::IntoEnumIterator;
 
@@ -6,7 +7,10 @@ use crate::{
     random_stream::RandomStream,
 };
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy, strum::EnumIter, strum::Display)]
+#[derive(
+    PartialEq, Eq, Hash, Debug, Clone, Copy, Serialize, Deserialize, strum::EnumIter, strum::Display,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum NodeRandomizationMode {
     #[strum(to_string = "none")]
     None,
@@ -20,7 +24,10 @@ pub enum NodeRandomizationMode {
     FossilFuelRich,
 }
 
-#[derive(Eq, PartialEq, Debug, Clone, Copy, strum::EnumIter, strum::Display)]
+#[derive(
+    Eq, PartialEq, Debug, Clone, Copy, Serialize, Deserialize, strum::EnumIter, strum::Display,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum NodePuritySettings {
     #[strum(to_string = "unchanged")]
     NoChange,

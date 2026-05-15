@@ -7,7 +7,6 @@ mod view_options;
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_app() -> eframe::Result {
     use crate::app::ui::App;
-
     env_logger::init();
 
     let native_options = eframe::NativeOptions {
@@ -20,7 +19,7 @@ pub fn run_app() -> eframe::Result {
     eframe::run_native(
         "Satisfactory World Generator",
         native_options,
-        Box::new(|cc| Ok(Box::new(App::new(cc)))),
+        Box::new(|cc| Ok(Box::new(App::new(cc, std::env::args().nth(1).as_deref())))),
     )
 }
 
@@ -50,7 +49,12 @@ pub fn run_app() -> eframe::Result {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(App::new(cc)))),
+                Box::new(|cc| {
+                    Ok(Box::new(App::new(
+                        cc,
+                        Some(&cc.integration_info.web_info.location.url),
+                    )))
+                }),
             )
             .await;
 
