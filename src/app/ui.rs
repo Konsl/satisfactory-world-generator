@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use egui::{Align, Checkbox, Layout, RichText};
 use egui_extras::{Column, TableBuilder};
@@ -16,7 +13,7 @@ use crate::{
         constants::get_resource_color,
         outline::WorldOutline,
         plot_item::{ResourceDisplay, ResourceDisplayContent},
-        view_options::ViewOptions,
+        view_options::{ViewOptions, ViewOptionsTarget},
     },
     game::{ResourceDescriptor, ResourcePurity, World},
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
@@ -189,36 +186,38 @@ impl eframe::App for App {
 
                                 table
                                     .header(20.0, |mut header| {
-                                        for text in ["Resource", "Impure", "Normal", "Pure", "Well"]
-                                        {
+                                        let headers =
+                                            [("Resource".to_owned(), ViewOptionsTarget::All)]
+                                                .into_iter()
+                                                .chain(ResourcePurity::iter().map(|p| {
+                                                    (p.to_string(), ViewOptionsTarget::Purity(p))
+                                                }))
+                                                .chain([(
+                                                    "Well".to_owned(),
+                                                    ViewOptionsTarget::FrackingNodes,
+                                                )]);
+
+                                        for (text, target) in headers {
                                             header.col(|ui| {
-                                                ui.strong(text);
+                                                let visible =
+                                                    self.view_options.is_target_visible(target);
+                                                let (partial, mut visible) =
+                                                    (visible.is_none(), visible.unwrap_or(true));
+
+                                                ui.add(
+                                                    Checkbox::new(
+                                                        &mut visible,
+                                                        RichText::new(text).strong(),
+                                                    )
+                                                    .indeterminate(partial),
+                                                );
+
+                                                self.view_options
+                                                    .set_target_visible(target, visible);
                                             });
                                         }
                                     })
                                     .body(|mut body| {
-                                        let fracking_resources = self
-                                            .world
-                                            .as_ref()
-                                            .map(|w| {
-                                                w.fracking_cores
-                                                    .iter()
-                                                    .map(|c| c.resource)
-                                                    .collect::<HashSet<_>>()
-                                            })
-                                            .unwrap_or_default();
-
-                                        let node_resources = self
-                                            .world
-                                            .as_ref()
-                                            .map(|w| {
-                                                w.resource_nodes
-                                                    .iter()
-                                                    .map(|n| n.resource)
-                                                    .collect::<HashSet<_>>()
-                                            })
-                                            .unwrap_or_default();
-
                                         for resource in ResourceDescriptor::iter() {
                                             body.row(18.0, |mut row| {
                                                 row.col(|ui| {
@@ -227,60 +226,59 @@ impl eframe::App for App {
                                                             .color(get_resource_color(resource)),
                                                     );
 
-                                                    let mut visible = self
-                                                        .view_options
-                                                        .is_resource_visible(resource);
+                                                    let target =
+                                                        ViewOptionsTarget::Resource(resource);
+                                                    let visible =
+                                                        self.view_options.is_target_visible(target);
+                                                    let (partial, mut visible) = (
+                                                        visible.is_none(),
+                                                        visible.unwrap_or(true),
+                                                    );
 
                                                     ui.add(
                                                         Checkbox::new(
                                                             &mut visible,
                                                             resource.to_string(),
                                                         )
-                                                        .indeterminate(
-                                                            self.view_options
-                                                                .is_resource_partial(resource),
-                                                        ),
+                                                        .indeterminate(partial),
                                                     );
 
                                                     self.view_options
-                                                        .enable_resource(resource, visible);
+                                                        .set_target_visible(target, visible);
                                                 });
 
-                                                for purity in ResourcePurity::iter() {
+                                                let targets = ResourcePurity::iter()
+                                                    .map(|p| {
+                                                        ViewOptionsTarget::ResourceWithPurity(
+                                                            resource, p,
+                                                        )
+                                                    })
+                                                    .chain([
+                                                        ViewOptionsTarget::ResourceFrackingNodes(
+                                                            resource,
+                                                        ),
+                                                    ]);
+
+                                                for target in targets {
                                                     row.col(|ui| {
-                                                        if !node_resources.contains(&resource) {
+                                                        if !self.view_options.target_exists(target)
+                                                        {
                                                             return;
                                                         }
 
                                                         let mut visible = self
                                                             .view_options
-                                                            .should_display_nodes(resource, purity);
+                                                            .is_target_visible(target)
+                                                            .unwrap_or_default();
 
                                                         ui.add(Checkbox::without_text(
                                                             &mut visible,
                                                         ));
 
-                                                        self.view_options.enable_resource_purity(
-                                                            resource, purity, visible,
-                                                        );
+                                                        self.view_options
+                                                            .set_target_visible(target, visible);
                                                     });
                                                 }
-
-                                                row.col(|ui| {
-                                                    if fracking_resources.contains(&resource) {
-                                                        let mut visible = self
-                                                            .view_options
-                                                            .should_display_fracking(resource);
-
-                                                        ui.add(Checkbox::without_text(
-                                                            &mut visible,
-                                                        ));
-
-                                                        self.view_options.enable_resource_fracking(
-                                                            resource, visible,
-                                                        );
-                                                    }
-                                                });
                                             });
                                         }
                                     });
@@ -456,6 +454,7 @@ impl eframe::App for App {
                 self.purity_settings,
             );
             self.stats.compute(&world);
+            self.view_options.get_existing_nodes(&world);
 
             self.last_calc_duration = Self::get_elapsed_duration(start_time);
             world

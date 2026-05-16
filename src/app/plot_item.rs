@@ -9,7 +9,7 @@ use egui_plot::{
 use crate::{
     app::{
         constants::{get_purity_marker, get_resource_color},
-        view_options::ViewOptions,
+        view_options::{ViewOptions, ViewOptionsTarget},
     },
     game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode},
 };
@@ -158,9 +158,11 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
         match &self.content {
             ResourceDisplayContent::ResourceNodes(resource, nodes) => {
                 for node in nodes {
+                    let target = ViewOptionsTarget::ResourceWithPurity(*resource, node.purity);
                     if !self
                         .view_options
-                        .should_display_nodes(*resource, node.purity)
+                        .is_target_visible(target)
+                        .unwrap_or_default()
                     {
                         continue;
                     }
@@ -180,7 +182,12 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
             }
 
             ResourceDisplayContent::FrackingNodes(resource, cores) => {
-                if !self.view_options.should_display_fracking(*resource) {
+                let target = ViewOptionsTarget::ResourceFrackingNodes(*resource);
+                if !self
+                    .view_options
+                    .is_target_visible(target)
+                    .unwrap_or_default()
+                {
                     return;
                 }
 
@@ -216,7 +223,12 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
             }
 
             ResourceDisplayContent::Geysers(geysers) => {
-                if !self.view_options.should_display_geysers() {
+                let target = ViewOptionsTarget::Geysers;
+                if !self
+                    .view_options
+                    .is_target_visible(target)
+                    .unwrap_or_default()
+                {
                     return;
                 }
 

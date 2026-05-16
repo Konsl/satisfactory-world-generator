@@ -92,7 +92,9 @@ impl ResourceDescriptor {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Deserialize, Clone, Copy, Debug, strum::EnumIter)]
+#[derive(
+    PartialEq, Eq, PartialOrd, Ord, Deserialize, Clone, Copy, Debug, strum::EnumIter, strum::Display,
+)]
 pub enum ResourcePurity {
     #[serde(rename = "RP_Inpure")]
     Impure = 1,
