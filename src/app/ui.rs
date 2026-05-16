@@ -140,6 +140,8 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.global_style_mut(|style| style.interaction.selectable_labels = false);
 
+        let mut view_options_highlight = None;
+
         egui::Panel::right("settings_panel")
             .resizable(true)
             .min_size(400.0)
@@ -166,10 +168,15 @@ impl eframe::App for App {
                                     "Show World Outline",
                                 );
 
-                                ui.checkbox(
-                                    self.view_options.geysers_visible_mut(),
-                                    "Show Geysers",
-                                );
+                                if ui
+                                    .checkbox(
+                                        self.view_options.geysers_visible_mut(),
+                                        "Show Geysers",
+                                    )
+                                    .hovered()
+                                {
+                                    view_options_highlight = Some(ViewOptionsTarget::Geysers);
+                                }
 
                                 let available_height = ui.available_height();
                                 let table = TableBuilder::new(ui)
@@ -204,13 +211,18 @@ impl eframe::App for App {
                                                 let (partial, mut visible) =
                                                     (visible.is_none(), visible.unwrap_or(true));
 
-                                                ui.add(
-                                                    Checkbox::new(
-                                                        &mut visible,
-                                                        RichText::new(text).strong(),
+                                                if ui
+                                                    .add(
+                                                        Checkbox::new(
+                                                            &mut visible,
+                                                            RichText::new(text).strong(),
+                                                        )
+                                                        .indeterminate(partial),
                                                     )
-                                                    .indeterminate(partial),
-                                                );
+                                                    .hovered()
+                                                {
+                                                    view_options_highlight = Some(target);
+                                                }
 
                                                 self.view_options
                                                     .set_target_visible(target, visible);
@@ -235,13 +247,18 @@ impl eframe::App for App {
                                                         visible.unwrap_or(true),
                                                     );
 
-                                                    ui.add(
-                                                        Checkbox::new(
-                                                            &mut visible,
-                                                            resource.to_string(),
+                                                    if ui
+                                                        .add(
+                                                            Checkbox::new(
+                                                                &mut visible,
+                                                                resource.to_string(),
+                                                            )
+                                                            .indeterminate(partial),
                                                         )
-                                                        .indeterminate(partial),
-                                                    );
+                                                        .hovered()
+                                                    {
+                                                        view_options_highlight = Some(target);
+                                                    }
 
                                                     self.view_options
                                                         .set_target_visible(target, visible);
@@ -271,9 +288,14 @@ impl eframe::App for App {
                                                             .is_target_visible(target)
                                                             .unwrap_or_default();
 
-                                                        ui.add(Checkbox::without_text(
-                                                            &mut visible,
-                                                        ));
+                                                        if ui
+                                                            .add(Checkbox::without_text(
+                                                                &mut visible,
+                                                            ))
+                                                            .hovered()
+                                                        {
+                                                            view_options_highlight = Some(target);
+                                                        }
 
                                                         self.view_options
                                                             .set_target_visible(target, visible);
@@ -501,6 +523,7 @@ impl eframe::App for App {
                         base_size,
                         ResourceDisplayContent::ResourceNodes(resource, nodes.collect()),
                         &self.view_options,
+                        view_options_highlight,
                     ));
                 }
 
@@ -510,6 +533,7 @@ impl eframe::App for App {
                         base_size,
                         ResourceDisplayContent::FrackingNodes(resource, cores.collect()),
                         &self.view_options,
+                        view_options_highlight,
                     ));
                 }
 
@@ -518,6 +542,7 @@ impl eframe::App for App {
                     base_size,
                     ResourceDisplayContent::Geysers(world.geysers.iter().by_ref().collect()),
                     &self.view_options,
+                    view_options_highlight,
                 ));
             });
 

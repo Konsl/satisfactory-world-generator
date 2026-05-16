@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{f32, ops::RangeInclusive};
 
 use egui::{Color32, PopupAnchor, Pos2, Shape, Stroke, epaint::CircleShape, vec2};
 use egui_plot::{
@@ -71,6 +71,8 @@ pub struct ResourceDisplay<'a> {
     content: ResourceDisplayContent<'a>,
 
     view_options: &'a ViewOptions,
+    view_options_highlight: Option<ViewOptionsTarget>,
+    plot_highlight: bool,
 }
 
 impl<'a> ResourceDisplay<'a> {
@@ -78,6 +80,7 @@ impl<'a> ResourceDisplay<'a> {
         marker_base_size: f32,
         content: ResourceDisplayContent<'a>,
         view_options: &'a ViewOptions,
+        highlight: Option<ViewOptionsTarget>,
     ) -> Self {
         let name = match content {
             ResourceDisplayContent::ResourceNodes(resource, _)
@@ -93,6 +96,8 @@ impl<'a> ResourceDisplay<'a> {
             content,
 
             view_options,
+            view_options_highlight: highlight,
+            plot_highlight: false,
         }
     }
 
@@ -152,7 +157,13 @@ impl<'a> ResourceDisplay<'a> {
 
 impl<'a> PlotItem for ResourceDisplay<'a> {
     fn shapes(&self, _ui: &egui::Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
-        let scale = if self.highlighted() { 2f32.sqrt() } else { 1.0 };
+        const HIGHLIGHT_SCALE: f32 = f32::consts::SQRT_2;
+
+        let scale = if self.plot_highlight && self.view_options_highlight.is_none() {
+            HIGHLIGHT_SCALE
+        } else {
+            1.0
+        };
         let color = self.color();
 
         match &self.content {
@@ -166,6 +177,15 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                     {
                         continue;
                     }
+
+                    let scale = if self
+                        .view_options_highlight
+                        .is_some_and(|h| h.contains(&target))
+                    {
+                        HIGHLIGHT_SCALE
+                    } else {
+                        scale
+                    };
 
                     let center = transform.position_from_point(
                         &ResourceDisplayContent::convert_location(node.location),
@@ -190,6 +210,15 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                 {
                     return;
                 }
+
+                let scale = if self
+                    .view_options_highlight
+                    .is_some_and(|h| h.contains(&target))
+                {
+                    HIGHLIGHT_SCALE
+                } else {
+                    scale
+                };
 
                 for core in cores {
                     let center = transform.position_from_point(
@@ -231,6 +260,15 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                 {
                     return;
                 }
+
+                let scale = if self
+                    .view_options_highlight
+                    .is_some_and(|h| h.contains(&target))
+                {
+                    HIGHLIGHT_SCALE
+                } else {
+                    scale
+                };
 
                 for geyser in geysers {
                     let center = transform.position_from_point(
@@ -363,5 +401,40 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                 location[0], location[1], location[2],
             ));
         });
+    }
+
+    fn highlight(&mut self) {
+        self.plot_highlight = true
+    }
+
+    fn highlighted(&self) -> bool {
+        if self.plot_highlight {
+            return true;
+        }
+
+        let Some(view_options_highlight) = self.view_options_highlight else {
+            return false;
+        };
+
+        match view_options_highlight {
+            ViewOptionsTarget::Geysers => {
+                matches!(self.content, ResourceDisplayContent::Geysers(_))
+            }
+            ViewOptionsTarget::Resource(resource) => {
+                matches!(
+                    self.content,
+                    ResourceDisplayContent::ResourceNodes(r, _)
+                    | ResourceDisplayContent::FrackingNodes(r, _)
+                        if r == resource
+                )
+            }
+            ViewOptionsTarget::ResourceWithPurity(resource, _) => {
+                matches!(self.content, ResourceDisplayContent::ResourceNodes(r, _) if r == resource)
+            }
+            ViewOptionsTarget::ResourceFrackingNodes(resource) => {
+                matches!(self.content, ResourceDisplayContent::FrackingNodes(r, _) if r == resource)
+            }
+            _ => false,
+        }
     }
 }

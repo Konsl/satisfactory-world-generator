@@ -18,6 +18,44 @@ pub enum ViewOptionsTarget {
     ResourceFrackingNodes(ResourceDescriptor),
 }
 
+impl ViewOptionsTarget {
+    pub fn contains(&self, other: &ViewOptionsTarget) -> bool {
+        match self {
+            ViewOptionsTarget::All => true,
+            ViewOptionsTarget::Geysers => matches!(other, ViewOptionsTarget::Geysers),
+            ViewOptionsTarget::Resource(resource) => {
+                matches!(
+                    other,
+                    ViewOptionsTarget::Resource(r)
+                    | ViewOptionsTarget::ResourceWithPurity(r, _)
+                    | ViewOptionsTarget::ResourceFrackingNodes(r)
+                        if r == resource
+                )
+            }
+            ViewOptionsTarget::Purity(purity) => {
+                matches!(
+                    other,
+                    ViewOptionsTarget::Purity(p)
+                    | ViewOptionsTarget::ResourceWithPurity(_, p)
+                        if p == purity
+                )
+            }
+            ViewOptionsTarget::FrackingNodes => {
+                matches!(
+                    other,
+                    ViewOptionsTarget::FrackingNodes | ViewOptionsTarget::ResourceFrackingNodes(_)
+                )
+            }
+            ViewOptionsTarget::ResourceWithPurity(resource, purity) => {
+                matches!(other, ViewOptionsTarget::ResourceWithPurity(r, p) if r == resource && p == purity)
+            }
+            ViewOptionsTarget::ResourceFrackingNodes(resource) => {
+                matches!(other, ViewOptionsTarget::ResourceFrackingNodes(r) if r == resource)
+            }
+        }
+    }
+}
+
 pub struct ViewOptions {
     world_outline_visible: bool,
     geysers_visible: bool,
