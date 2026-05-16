@@ -308,10 +308,10 @@ impl eframe::App for App {
                                             ui.strong("Resource");
                                         });
 
-                                        for mk in 1..=3 {
-                                            for rate in [100, 250] {
+                                        for mk in Stats::MINER_MK_RANGE {
+                                            for speed in Stats::CLOCK_SPEEDS {
                                                 header.col(|ui| {
-                                                    ui.strong(format!("Mk. {}\n{} %", mk, rate));
+                                                    ui.strong(format!("Mk. {}\n{} %", mk, speed));
                                                 });
                                             }
                                         }
@@ -327,10 +327,10 @@ impl eframe::App for App {
                                                     ui.label(resource.to_string());
                                                 });
 
-                                                for mk in 1..=3 {
-                                                    for rate in [100, 250] {
+                                                for mk in Stats::MINER_MK_RANGE {
+                                                    for speed in Stats::CLOCK_SPEEDS {
                                                         let amount =
-                                                            self.stats.get(rate, mk, resource);
+                                                            self.stats.get(speed, mk, resource);
 
                                                         row.col(|ui| {
                                                             ui.label(format!("{}", amount));
@@ -390,45 +390,41 @@ impl eframe::App for App {
                                 ui.end_row();
 
                                 ui.label("Mode");
-                                ui.horizontal(|ui| {
-                                    egui::ComboBox::from_id_salt("mode_setting")
-                                        .selected_text(self.randomization_mode.to_string())
-                                        .show_ui(ui, |ui| {
-                                            NodeRandomizationMode::iter().for_each(|m| {
-                                                if ui
-                                                    .selectable_value(
-                                                        &mut self.randomization_mode,
-                                                        m,
-                                                        m.to_string(),
-                                                    )
-                                                    .changed()
-                                                {
-                                                    self.world = None;
-                                                }
-                                            });
+                                egui::ComboBox::from_id_salt("mode_setting")
+                                    .selected_text(self.randomization_mode.to_string())
+                                    .show_ui(ui, |ui| {
+                                        NodeRandomizationMode::iter().for_each(|m| {
+                                            if ui
+                                                .selectable_value(
+                                                    &mut self.randomization_mode,
+                                                    m,
+                                                    m.to_string(),
+                                                )
+                                                .changed()
+                                            {
+                                                self.world = None;
+                                            }
                                         });
-                                });
+                                    });
                                 ui.end_row();
 
                                 ui.label("Purity");
-                                ui.horizontal(|ui| {
-                                    egui::ComboBox::from_id_salt("purity_setting")
-                                        .selected_text(self.purity_settings.to_string())
-                                        .show_ui(ui, |ui| {
-                                            NodePuritySettings::iter().for_each(|p| {
-                                                if ui
-                                                    .selectable_value(
-                                                        &mut self.purity_settings,
-                                                        p,
-                                                        p.to_string(),
-                                                    )
-                                                    .changed()
-                                                {
-                                                    self.world = None;
-                                                }
-                                            });
+                                egui::ComboBox::from_id_salt("purity_setting")
+                                    .selected_text(self.purity_settings.to_string())
+                                    .show_ui(ui, |ui| {
+                                        NodePuritySettings::iter().for_each(|p| {
+                                            if ui
+                                                .selectable_value(
+                                                    &mut self.purity_settings,
+                                                    p,
+                                                    p.to_string(),
+                                                )
+                                                .changed()
+                                            {
+                                                self.world = None;
+                                            }
                                         });
-                                });
+                                    });
                                 ui.end_row();
                             });
                     });

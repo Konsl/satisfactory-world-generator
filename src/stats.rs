@@ -1,14 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeInclusive};
 
 use strum::IntoEnumIterator;
 
 use crate::game::{ResourceDescriptor, World};
 
-pub struct Stats(HashMap<(i32, i32, ResourceDescriptor), f32>);
+pub struct Stats(
+    /// extraction rate in amount / min, by (clock speed, miner mk, resource type)
+    HashMap<(i32, i32, ResourceDescriptor), f32>,
+);
 
 impl Stats {
+    /// this is i32 because we need stable ids for the hash map
     pub const CLOCK_SPEEDS: [i32; 2] = [100, 250];
-    pub const MINER_MK_MAX: i32 = 3;
+    pub const MINER_MK_RANGE: RangeInclusive<i32> = 1..=3;
 
     pub fn new() -> Self {
         Self(HashMap::new())
@@ -34,7 +38,7 @@ impl Stats {
 
         for resource in ResourceDescriptor::iter() {
             for clock_speed in Self::CLOCK_SPEEDS {
-                for miner_mk in 1..=Self::MINER_MK_MAX {
+                for miner_mk in Self::MINER_MK_RANGE {
                     self.0.insert(
                         (clock_speed, miner_mk, resource),
                         world.get_extraction_rate(
