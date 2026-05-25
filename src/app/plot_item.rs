@@ -13,7 +13,7 @@ use crate::{
     },
     game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode},
 };
-use crate::app::constants::get_purity_color;
+use crate::app::constants::{get_purity_color, get_resource_stroke};
 
 pub enum ResourceDisplayContent<'a> {
     ResourceNodes(ResourceDescriptor, Vec<&'a ResourceNode>),
@@ -110,17 +110,14 @@ impl<'a> ResourceDisplay<'a> {
         center: Pos2,
         radius: f32,
         color: Color32,
-        filled: bool,
-        shapes: &mut Vec<Shape>,
+        strokeColor: Color32,
+        shapes: &mut Vec<Shape>
     ) {
         let sqrt_3 = 3_f32.sqrt();
         let frac_sqrt_3_2 = 3_f32.sqrt() / 2.0;
 
-        let (fill, stroke) = if filled {
-            (color, Stroke::NONE)
-        } else {
-            (Color32::TRANSPARENT, Stroke::new(radius / 5.0, color))
-        };
+        let fill = color;
+        let stroke = Stroke::new(radius / 10.0, strokeColor);
 
         let tf = |dx: f32, dy: f32| -> Pos2 { center + radius * vec2(dx, dy) };
 
@@ -199,7 +196,7 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                         center,
                         self.marker_base_size * scale,
                         get_purity_color(node.purity),
-                        true,
+                        get_resource_stroke(*resource),
                         shapes,
                     );
 
@@ -268,7 +265,7 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                             center,
                             0.75 * self.marker_base_size * scale,
                             get_purity_color(satellite.purity),
-                            true,
+                            get_resource_stroke(*resource),
                             shapes,
                         );
 
@@ -323,7 +320,7 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                         center,
                         self.marker_base_size * scale,
                         color,
-                        false,
+                        color,
                         shapes,
                     );
                 }
