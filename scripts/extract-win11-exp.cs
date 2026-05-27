@@ -1,5 +1,4 @@
-#r "nuget: CUE4Parse, 1.2.2"
-#r "nuget: Newtonsoft.Json"
+#r "external/CUE4Parse-publish/CUE4Parse.dll"
 
 using System.Diagnostics;
 using CUE4Parse.Compression;
@@ -24,7 +23,7 @@ OodleHelper.Initialize(oodlePath);
 
 var provider = new DefaultFileProvider(directory, SearchOption.AllDirectories, new VersionContainer(EGame.GAME_UE5_6),
     StringComparer.Ordinal);
-provider.MappingsContainer = new FileUsmapTypeMappingsProvider(mapping);
+//provider.MappingsContainer = new FileUsmapTypeMappingsProvider(mapping);
 provider.Initialize();
 provider.Mount();
 

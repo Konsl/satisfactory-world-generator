@@ -10,7 +10,17 @@ This does not include version since verion-info requires `wrestool`.
 
 
 ### EXP 
-Cannot get this working. The mapping is causing issues.
+Build the tagged submodel version of CUEParse from FModel e.g.
+
+```
+git clone https://github.com/FabianFG/CUE4Parse external/CUE4Parse
+cd external/CUE4Parse
+git checkout cf74fc3
+```
+
+```
+dotnet build external/CUE4Parse/CUE4Parse/CUE4Parse.csproj -c Release  -o external/CUE4Parse-publish -p:CopyLocalLockFileAssemblies=true
+```
 
 ## Icons
 
