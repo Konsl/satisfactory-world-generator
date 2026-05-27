@@ -41,6 +41,7 @@ pub struct App {
     purity_settings: NodePuritySettings,
 
     side_panel: SidePanel,
+    dark_mode: bool,
 
     world: Option<World>,
     stats: Stats,
@@ -60,6 +61,7 @@ impl Default for App {
             purity_settings: NodePuritySettings::NoChange,
 
             side_panel: SidePanel::ViewOptions,
+            dark_mode: true,
 
             world: None,
             stats: Stats::new(),
@@ -139,6 +141,11 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.global_style_mut(|style| style.interaction.selectable_labels = false);
+        ui.ctx().set_visuals(if self.dark_mode {
+            egui::Visuals::dark()
+        } else {
+            egui::Visuals::light()
+        });
 
         let mut view_options_highlight = None;
 
@@ -365,7 +372,26 @@ impl eframe::App for App {
                     });
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
-                    ui.heading("Randomization Settings");
+                    ui.horizontal(|ui| {
+                        ui.heading("Randomization Settings");
+
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            let label = if self.dark_mode {
+                                "\u{2600} Light mode"
+                            } else {
+                                "\u{1F319} Dark mode"
+                            };
+
+                            if ui.button(label).clicked() {
+                                self.dark_mode = !self.dark_mode;
+                                ui.ctx().set_visuals(if self.dark_mode {
+                                    egui::Visuals::dark()
+                                } else {
+                                    egui::Visuals::light()
+                                });
+                            }
+                        });
+                    });
                     ui.add_space(5.0);
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
