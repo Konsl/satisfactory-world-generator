@@ -241,10 +241,12 @@ impl eframe::App for App {
                                         for resource in ResourceDescriptor::iter() {
                                             body.row(18.0, |mut row| {
                                                 row.col(|ui| {
-                                                    ui.label(
-                                                        RichText::new("\u{23FA}")
-                                                            .color(get_resource_color(resource)),
-                                                    );
+                                                    ui.label(RichText::new("\u{23FA}").color(
+                                                        get_resource_color(
+                                                            resource,
+                                                            ui.visuals().dark_mode,
+                                                        ),
+                                                    ));
 
                                                     let target =
                                                         ViewOptionsTarget::Resource(resource);
@@ -348,10 +350,12 @@ impl eframe::App for App {
                                         for resource in ResourceDescriptor::iter() {
                                             body.row(18.0, |mut row| {
                                                 row.col(|ui| {
-                                                    ui.label(
-                                                        RichText::new("\u{23FA}")
-                                                            .color(get_resource_color(resource)),
-                                                    );
+                                                    ui.label(RichText::new("\u{23FA}").color(
+                                                        get_resource_color(
+                                                            resource,
+                                                            ui.visuals().dark_mode,
+                                                        ),
+                                                    ));
                                                     ui.label(resource.to_string());
                                                 });
 
@@ -518,6 +522,8 @@ impl eframe::App for App {
                 .invert_y(true)
                 .id(self.plot_id);
 
+            let is_dark_mode = ui.visuals().dark_mode;
+
             plot.show(ui, |plot_ui| {
                 plot_ui.add(self.outline.plot_item());
 
@@ -534,6 +540,7 @@ impl eframe::App for App {
                         ResourceDisplayContent::ResourceNodes(resource, nodes.collect()),
                         &self.view_options,
                         view_options_highlight,
+                        is_dark_mode,
                     ));
                 }
 
@@ -544,6 +551,7 @@ impl eframe::App for App {
                         ResourceDisplayContent::FrackingNodes(resource, cores.collect()),
                         &self.view_options,
                         view_options_highlight,
+                        is_dark_mode,
                     ));
                 }
 
@@ -553,6 +561,7 @@ impl eframe::App for App {
                     ResourceDisplayContent::Geysers(world.geysers.iter().by_ref().collect()),
                     &self.view_options,
                     view_options_highlight,
+                    is_dark_mode,
                 ));
             });
 

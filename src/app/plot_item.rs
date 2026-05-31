@@ -21,12 +21,12 @@ pub enum ResourceDisplayContent<'a> {
 }
 
 impl<'a> ResourceDisplayContent<'a> {
-    pub fn get_color(&self) -> Color32 {
+    pub fn get_color(&self, is_dark_mode: bool) -> Color32 {
         match self {
             Self::ResourceNodes(resource, _) | Self::FrackingNodes(resource, _) => {
-                get_resource_color(*resource)
+                get_resource_color(*resource, is_dark_mode)
             }
-            Self::Geysers(_) => get_resource_color(ResourceDescriptor::Water),
+            Self::Geysers(_) => get_resource_color(ResourceDescriptor::Water, is_dark_mode),
         }
     }
 
@@ -73,6 +73,7 @@ pub struct ResourceDisplay<'a> {
     view_options: &'a ViewOptions,
     view_options_highlight: Option<ViewOptionsTarget>,
     plot_highlight: bool,
+    is_dark_mode: bool,
 }
 
 impl<'a> ResourceDisplay<'a> {
@@ -81,6 +82,7 @@ impl<'a> ResourceDisplay<'a> {
         content: ResourceDisplayContent<'a>,
         view_options: &'a ViewOptions,
         highlight: Option<ViewOptionsTarget>,
+        is_dark_mode: bool,
     ) -> Self {
         let name = match content {
             ResourceDisplayContent::ResourceNodes(resource, _)
@@ -98,6 +100,7 @@ impl<'a> ResourceDisplay<'a> {
             view_options,
             view_options_highlight: highlight,
             plot_highlight: false,
+            is_dark_mode,
         }
     }
 
@@ -291,7 +294,7 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
     fn initialize(&mut self, _x_range: RangeInclusive<f64>) {}
 
     fn color(&self) -> Color32 {
-        self.content.get_color()
+        self.content.get_color(self.is_dark_mode)
     }
 
     fn geometry(&self) -> PlotGeometry<'_> {
