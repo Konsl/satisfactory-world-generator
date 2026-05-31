@@ -310,7 +310,7 @@ impl eframe::App for App {
 
                                                 ui.checkbox(
                                                     self.view_options.geysers_visible_mut(),
-                                                    "Geysers",
+                                                    "Geyser",
                                                 );
                                             });
 

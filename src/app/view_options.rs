@@ -209,8 +209,8 @@ impl ViewOptions {
     pub fn is_target_visible(&self, target: ViewOptionsTarget) -> Option<bool> {
         match target {
             ViewOptionsTarget::All => {
-                let mut all_visible = true;
-                let mut all_hidden = true;
+                let mut all_visible = self.geysers_visible;
+                let mut all_hidden = !self.geysers_visible;
 
                 for resource in ResourceDescriptor::iter() {
                     match self.is_target_visible(ViewOptionsTarget::Resource(resource)) {
@@ -318,15 +318,19 @@ impl ViewOptions {
         match target {
             ViewOptionsTarget::All => {
                 if visible {
-                    if self.visible_items.values().any(|e| e.iter().any(|&v| v)) {
+                    if self.geysers_visible
+                        || self.visible_items.values().any(|e| e.iter().any(|&v| v))
+                    {
                         return;
                     }
 
                     for resource in ResourceDescriptor::iter() {
                         self.visible_items.insert(resource, Self::ALL_VISIBLE);
                     }
+                    self.geysers_visible = true;
                 } else {
                     self.visible_items.clear();
+                    self.geysers_visible = false;
                 }
             }
             ViewOptionsTarget::Geysers => self.geysers_visible = visible,
