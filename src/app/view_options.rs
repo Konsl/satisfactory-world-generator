@@ -1,9 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
+use egui::{Checkbox, RichText};
+use egui_extras::{Column, TableBuilder};
 use egui_plot::PlotMemory;
 use strum::IntoEnumIterator;
 
-use crate::game::{ResourceDescriptor, ResourcePurity, World};
+use crate::{
+    app::constants::get_resource_color,
+    game::{ResourceDescriptor, ResourcePurity, World},
+};
 
 #[derive(Clone, Copy)]
 pub enum ViewOptionsTarget {
@@ -359,5 +364,115 @@ impl ViewOptions {
 
     pub fn geysers_visible_mut(&mut self) -> &mut bool {
         &mut self.geysers_visible
+    }
+
+    pub fn ui(&mut self, ui: &mut egui::Ui, highlight: &mut Option<ViewOptionsTarget>) {
+        let available_height = ui.available_height();
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::remainder())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height);
+
+        table
+            .header(20.0, |mut header| {
+                let headers = [("Resource".to_owned(), ViewOptionsTarget::All)]
+                    .into_iter()
+                    .chain(
+                        ResourcePurity::iter()
+                            .map(|p| (p.to_string(), ViewOptionsTarget::Purity(p))),
+                    )
+                    .chain([("Well".to_owned(), ViewOptionsTarget::FrackingNodes)]);
+
+                for (text, target) in headers {
+                    header.col(|ui| {
+                        let visible = self.is_target_visible(target);
+                        let (partial, mut visible) = (visible.is_none(), visible.unwrap_or(true));
+
+                        if ui
+                            .add(
+                                Checkbox::new(&mut visible, RichText::new(text).strong())
+                                    .indeterminate(partial),
+                            )
+                            .hovered()
+                        {
+                            *highlight = Some(target);
+                        }
+
+                        self.set_target_visible(target, visible);
+                    });
+                }
+            })
+            .body(|mut body| {
+                for resource in ResourceDescriptor::iter() {
+                    body.row(18.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(
+                                RichText::new("\u{23FA}")
+                                    .color(get_resource_color(resource, ui.visuals().dark_mode)),
+                            );
+
+                            let target = ViewOptionsTarget::Resource(resource);
+                            let visible = self.is_target_visible(target);
+                            let (partial, mut visible) =
+                                (visible.is_none(), visible.unwrap_or(true));
+
+                            if ui
+                                .add(
+                                    Checkbox::new(&mut visible, resource.to_string())
+                                        .indeterminate(partial),
+                                )
+                                .hovered()
+                            {
+                                *highlight = Some(target);
+                            }
+
+                            self.set_target_visible(target, visible);
+                        });
+
+                        let targets = ResourcePurity::iter()
+                            .map(|p| ViewOptionsTarget::ResourceWithPurity(resource, p))
+                            .chain([ViewOptionsTarget::ResourceFrackingNodes(resource)]);
+
+                        for target in targets {
+                            row.col(|ui| {
+                                if !self.target_exists(target) {
+                                    return;
+                                }
+
+                                let mut visible =
+                                    self.is_target_visible(target).unwrap_or_default();
+
+                                if ui.add(Checkbox::without_text(&mut visible)).hovered() {
+                                    *highlight = Some(target);
+                                }
+
+                                self.set_target_visible(target, visible);
+                            });
+                        }
+                    });
+                }
+
+                body.row(18.0, |mut row| {
+                    row.col(|ui| {
+                        ui.label(RichText::new("\u{2731}").color(get_resource_color(
+                            ResourceDescriptor::Water,
+                            ui.visuals().dark_mode,
+                        )));
+
+                        ui.checkbox(self.geysers_visible_mut(), "Geyser");
+                    });
+
+                    for _ in 0..(ResourcePurity::iter().count() + 1) {
+                        row.col(|_ui| {});
+                    }
+                });
+            });
     }
 }

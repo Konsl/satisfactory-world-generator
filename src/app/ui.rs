@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use egui::{Align, Checkbox, Layout, RichText};
+use egui::{Align, Layout, RichText};
 use egui_extras::{Column, TableBuilder};
 use egui_plot::PlotPoint;
 use itertools::Itertools;
@@ -13,9 +13,9 @@ use crate::{
         constants::get_resource_color,
         outline::WorldOutline,
         plot_item::{ResourceDisplay, ResourceDisplayContent},
-        view_options::{ViewOptions, ViewOptionsTarget},
+        view_options::ViewOptions,
     },
-    game::{ResourceDescriptor, ResourcePurity, World},
+    game::{ResourceDescriptor, World},
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
     stats::Stats,
 };
@@ -134,6 +134,61 @@ impl App {
     fn get_elapsed_duration(start_time: f64) -> Duration {
         Duration::from_secs_f64((Self::get_time() - start_time) / 1000.0)
     }
+
+    fn stats_ui(&self, ui: &mut egui::Ui) {
+        let available_height = ui.available_height();
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::remainder())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height);
+
+        table
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Resource");
+                });
+
+                for mk in Stats::MINER_MK_RANGE {
+                    for speed in Stats::CLOCK_SPEEDS {
+                        header.col(|ui| {
+                            ui.strong(format!("Mk. {}\n{} %", mk, speed));
+                        });
+                    }
+                }
+            })
+            .body(|mut body| {
+                for resource in ResourceDescriptor::iter() {
+                    body.row(18.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(
+                                RichText::new("\u{23FA}")
+                                    .color(get_resource_color(resource, ui.visuals().dark_mode)),
+                            );
+                            ui.label(resource.to_string());
+                        });
+
+                        for mk in Stats::MINER_MK_RANGE {
+                            for speed in Stats::CLOCK_SPEEDS {
+                                let amount = self.stats.get(speed, mk, resource);
+
+                                row.col(|ui| {
+                                    ui.label(format!("{}", amount));
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+    }
 }
 
 impl eframe::App for App {
@@ -171,212 +226,11 @@ impl eframe::App for App {
 
                         match self.side_panel {
                             SidePanel::ViewOptions => {
-                                let available_height = ui.available_height();
-                                let table = TableBuilder::new(ui)
-                                    .striped(true)
-                                    .resizable(false)
-                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                                    .column(Column::remainder())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .min_scrolled_height(0.0)
-                                    .max_scroll_height(available_height);
-
-                                table
-                                    .header(20.0, |mut header| {
-                                        let headers =
-                                            [("Resource".to_owned(), ViewOptionsTarget::All)]
-                                                .into_iter()
-                                                .chain(ResourcePurity::iter().map(|p| {
-                                                    (p.to_string(), ViewOptionsTarget::Purity(p))
-                                                }))
-                                                .chain([(
-                                                    "Well".to_owned(),
-                                                    ViewOptionsTarget::FrackingNodes,
-                                                )]);
-
-                                        for (text, target) in headers {
-                                            header.col(|ui| {
-                                                let visible =
-                                                    self.view_options.is_target_visible(target);
-                                                let (partial, mut visible) =
-                                                    (visible.is_none(), visible.unwrap_or(true));
-
-                                                if ui
-                                                    .add(
-                                                        Checkbox::new(
-                                                            &mut visible,
-                                                            RichText::new(text).strong(),
-                                                        )
-                                                        .indeterminate(partial),
-                                                    )
-                                                    .hovered()
-                                                {
-                                                    view_options_highlight = Some(target);
-                                                }
-
-                                                self.view_options
-                                                    .set_target_visible(target, visible);
-                                            });
-                                        }
-                                    })
-                                    .body(|mut body| {
-                                        for resource in ResourceDescriptor::iter() {
-                                            body.row(18.0, |mut row| {
-                                                row.col(|ui| {
-                                                    ui.label(RichText::new("\u{23FA}").color(
-                                                        get_resource_color(
-                                                            resource,
-                                                            ui.visuals().dark_mode,
-                                                        ),
-                                                    ));
-
-                                                    let target =
-                                                        ViewOptionsTarget::Resource(resource);
-                                                    let visible =
-                                                        self.view_options.is_target_visible(target);
-                                                    let (partial, mut visible) = (
-                                                        visible.is_none(),
-                                                        visible.unwrap_or(true),
-                                                    );
-
-                                                    if ui
-                                                        .add(
-                                                            Checkbox::new(
-                                                                &mut visible,
-                                                                resource.to_string(),
-                                                            )
-                                                            .indeterminate(partial),
-                                                        )
-                                                        .hovered()
-                                                    {
-                                                        view_options_highlight = Some(target);
-                                                    }
-
-                                                    self.view_options
-                                                        .set_target_visible(target, visible);
-                                                });
-
-                                                let targets = ResourcePurity::iter()
-                                                    .map(|p| {
-                                                        ViewOptionsTarget::ResourceWithPurity(
-                                                            resource, p,
-                                                        )
-                                                    })
-                                                    .chain([
-                                                        ViewOptionsTarget::ResourceFrackingNodes(
-                                                            resource,
-                                                        ),
-                                                    ]);
-
-                                                for target in targets {
-                                                    row.col(|ui| {
-                                                        if !self.view_options.target_exists(target)
-                                                        {
-                                                            return;
-                                                        }
-
-                                                        let mut visible = self
-                                                            .view_options
-                                                            .is_target_visible(target)
-                                                            .unwrap_or_default();
-
-                                                        if ui
-                                                            .add(Checkbox::without_text(
-                                                                &mut visible,
-                                                            ))
-                                                            .hovered()
-                                                        {
-                                                            view_options_highlight = Some(target);
-                                                        }
-
-                                                        self.view_options
-                                                            .set_target_visible(target, visible);
-                                                    });
-                                                }
-                                            });
-                                        }
-
-                                        body.row(18.0, |mut row| {
-                                            row.col(|ui| {
-                                                ui.label(RichText::new("\u{2731}").color(
-                                                    get_resource_color(
-                                                        ResourceDescriptor::Water,
-                                                        ui.visuals().dark_mode,
-                                                    ),
-                                                ));
-
-                                                ui.checkbox(
-                                                    self.view_options.geysers_visible_mut(),
-                                                    "Geyser",
-                                                );
-                                            });
-
-                                            for _ in 0..(ResourcePurity::iter().count() + 1) {
-                                                row.col(|_ui| {});
-                                            }
-                                        });
-                                    });
+                                self.view_options.ui(ui, &mut view_options_highlight);
                             }
 
                             SidePanel::Stats => {
-                                let available_height = ui.available_height();
-                                let table = TableBuilder::new(ui)
-                                    .striped(true)
-                                    .resizable(false)
-                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                                    .column(Column::remainder())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .min_scrolled_height(0.0)
-                                    .max_scroll_height(available_height);
-
-                                table
-                                    .header(20.0, |mut header| {
-                                        header.col(|ui| {
-                                            ui.strong("Resource");
-                                        });
-
-                                        for mk in Stats::MINER_MK_RANGE {
-                                            for speed in Stats::CLOCK_SPEEDS {
-                                                header.col(|ui| {
-                                                    ui.strong(format!("Mk. {}\n{} %", mk, speed));
-                                                });
-                                            }
-                                        }
-                                    })
-                                    .body(|mut body| {
-                                        for resource in ResourceDescriptor::iter() {
-                                            body.row(18.0, |mut row| {
-                                                row.col(|ui| {
-                                                    ui.label(RichText::new("\u{23FA}").color(
-                                                        get_resource_color(
-                                                            resource,
-                                                            ui.visuals().dark_mode,
-                                                        ),
-                                                    ));
-                                                    ui.label(resource.to_string());
-                                                });
-
-                                                for mk in Stats::MINER_MK_RANGE {
-                                                    for speed in Stats::CLOCK_SPEEDS {
-                                                        let amount =
-                                                            self.stats.get(speed, mk, resource);
-
-                                                        row.col(|ui| {
-                                                            ui.label(format!("{}", amount));
-                                                        });
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
+                                self.stats_ui(ui);
                             }
                         }
                     });
