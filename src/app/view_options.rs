@@ -466,7 +466,9 @@ impl ViewOptions {
                             ui.visuals().dark_mode,
                         )));
 
-                        ui.checkbox(self.geysers_visible_mut(), "Geyser");
+                        if ui.checkbox(self.geysers_visible_mut(), "Geyser").hovered() {
+                            *highlight = Some(ViewOptionsTarget::Geysers);
+                        }
                     });
 
                     for _ in 0..(ResourcePurity::iter().count() + 1) {
