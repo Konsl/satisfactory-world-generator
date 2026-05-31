@@ -77,7 +77,7 @@ impl<'a> PlotItem for WorldOutlinePlotItem<'a> {
     fn initialize(&mut self, _x_range: RangeInclusive<f64>) {}
 
     fn color(&self) -> Color32 {
-        Color32::WHITE
+        Color32::TRANSPARENT
     }
 
     fn geometry(&self) -> PlotGeometry<'_> {
