@@ -171,21 +171,6 @@ impl eframe::App for App {
 
                         match self.side_panel {
                             SidePanel::ViewOptions => {
-                                ui.checkbox(
-                                    self.view_options.world_outline_visible_mut(),
-                                    "Show World Outline",
-                                );
-
-                                if ui
-                                    .checkbox(
-                                        self.view_options.geysers_visible_mut(),
-                                        "Show Geysers",
-                                    )
-                                    .hovered()
-                                {
-                                    view_options_highlight = Some(ViewOptionsTarget::Geysers);
-                                }
-
                                 let available_height = ui.available_height();
                                 let table = TableBuilder::new(ui)
                                     .striped(true)
@@ -313,6 +298,26 @@ impl eframe::App for App {
                                                 }
                                             });
                                         }
+
+                                        body.row(18.0, |mut row| {
+                                            row.col(|ui| {
+                                                ui.label(RichText::new("\u{2731}").color(
+                                                    get_resource_color(
+                                                        ResourceDescriptor::Water,
+                                                        ui.visuals().dark_mode,
+                                                    ),
+                                                ));
+
+                                                ui.checkbox(
+                                                    self.view_options.geysers_visible_mut(),
+                                                    "Geysers",
+                                                );
+                                            });
+
+                                            for _ in 0..(ResourcePurity::iter().count() + 1) {
+                                                row.col(|_ui| {});
+                                            }
+                                        });
                                     });
                             }
 

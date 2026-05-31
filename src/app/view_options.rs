@@ -353,10 +353,6 @@ impl ViewOptions {
         }
     }
 
-    pub fn world_outline_visible_mut(&mut self) -> &mut bool {
-        &mut self.world_outline_visible
-    }
-
     pub fn geysers_visible_mut(&mut self) -> &mut bool {
         &mut self.geysers_visible
     }
