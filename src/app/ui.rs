@@ -1,6 +1,9 @@
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
-use egui::{Align, Checkbox, Layout, RichText};
+use egui::{Align, Layout, RichText, TextureHandle};
 use egui_extras::{Column, TableBuilder};
 use egui_plot::PlotPoint;
 use itertools::Itertools;
@@ -11,12 +14,12 @@ use url::Url;
 use crate::{
     app::{
         constants::get_resource_color,
-        icons::IconSet,
         outline::WorldOutline,
         plot_item::{ResourceDisplay, ResourceDisplayContent},
-        view_options::{ViewOptions, ViewOptionsTarget},
+        textures::{get_geyser_texture, get_resource_texture, load_texture},
+        view_options::ViewOptions,
     },
-    game::{ResourceDescriptor, ResourcePurity, World},
+    game::{ResourceDescriptor, World},
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
     stats::Stats,
 };
@@ -52,7 +55,8 @@ pub struct App {
 
     outline: WorldOutline,
 
-    icons: IconSet,
+    resource_rextures: HashMap<ResourceDescriptor, TextureHandle>,
+    geyser_texture: Option<TextureHandle>,
 }
 
 impl Default for App {
@@ -72,7 +76,9 @@ impl Default for App {
             view_options: ViewOptions::new(),
 
             outline: WorldOutline::new(),
-            icons: IconSet::default(),
+
+            resource_rextures: HashMap::new(),
+            geyser_texture: None,
         }
     }
 }
@@ -83,8 +89,6 @@ impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, startup_url: Option<&str>) -> Self {
         let mut app = Self::default();
 
-        app.icons = IconSet::load(&cc.egui_ctx);
-
         if let Some(params) = startup_url
             .and_then(|url| Url::parse(url).ok())
             .and_then(|url| serde_urlencoded::from_str::<QueryParams>(url.query()?).ok())
@@ -93,6 +97,26 @@ impl App {
             app.randomization_mode = params.mode;
             app.purity_settings = params.purity;
         }
+
+        for resource in ResourceDescriptor::iter() {
+            let handle = load_texture(
+                &cc.egui_ctx,
+                resource.get_internal_name(),
+                get_resource_texture(resource),
+            )
+            .expect("could not load bundled texture");
+
+            app.resource_rextures.insert(resource, handle);
+        }
+
+        app.geyser_texture = Some(
+            load_texture(
+                &cc.egui_ctx,
+                "Desc_GeneratorGeoThermal_C",
+                get_geyser_texture(),
+            )
+            .expect("could not load bundled texture"),
+        );
 
         app
     }
@@ -138,11 +162,74 @@ impl App {
     fn get_elapsed_duration(start_time: f64) -> Duration {
         Duration::from_secs_f64((Self::get_time() - start_time) / 1000.0)
     }
+
+    fn stats_ui(&self, ui: &mut egui::Ui) {
+        let available_height = ui.available_height();
+        let table = TableBuilder::new(ui)
+            .striped(true)
+            .resizable(false)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::remainder())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .column(Column::auto())
+            .min_scrolled_height(0.0)
+            .max_scroll_height(available_height);
+
+        table
+            .header(20.0, |mut header| {
+                header.col(|ui| {
+                    ui.strong("Resource");
+                });
+
+                for mk in Stats::MINER_MK_RANGE {
+                    for speed in Stats::CLOCK_SPEEDS {
+                        header.col(|ui| {
+                            ui.strong(format!("Mk. {}\n{} %", mk, speed));
+                        });
+                    }
+                }
+            })
+            .body(|mut body| {
+                for resource in ResourceDescriptor::iter() {
+                    body.row(18.0, |mut row| {
+                        row.col(|ui| {
+                            ui.label(
+                                RichText::new("\u{23FA}")
+                                    .color(get_resource_color(resource, ui.visuals().dark_mode)),
+                            );
+                            ui.label(resource.to_string());
+                        });
+
+                        for mk in Stats::MINER_MK_RANGE {
+                            for speed in Stats::CLOCK_SPEEDS {
+                                let amount = self.stats.get(speed, mk, resource);
+
+                                row.col(|ui| {
+                                    ui.label(format!("{}", amount));
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+    }
 }
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.global_style_mut(|style| style.interaction.selectable_labels = false);
+
+        egui::Panel::top("top_bar")
+            .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(4))
+            .show_inside(ui, |ui| {
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    egui::widgets::global_theme_preference_buttons(ui);
+                });
+            });
 
         let mut view_options_highlight = None;
 
@@ -167,209 +254,19 @@ impl eframe::App for App {
 
                         match self.side_panel {
                             SidePanel::ViewOptions => {
-                                ui.checkbox(
-                                    self.view_options.world_outline_visible_mut(),
-                                    "Show World Outline",
-                                );
-
-                                if ui
-                                    .checkbox(
-                                        self.view_options.geysers_visible_mut(),
-                                        "Show Geysers",
-                                    )
-                                    .hovered()
-                                {
-                                    view_options_highlight = Some(ViewOptionsTarget::Geysers);
-                                }
-
-                                let available_height = ui.available_height();
-                                let table = TableBuilder::new(ui)
-                                    .striped(true)
-                                    .resizable(false)
-                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                                    .column(Column::remainder())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .min_scrolled_height(0.0)
-                                    .max_scroll_height(available_height);
-
-                                table
-                                    .header(20.0, |mut header| {
-                                        let headers =
-                                            [("Resource".to_owned(), ViewOptionsTarget::All)]
-                                                .into_iter()
-                                                .chain(ResourcePurity::iter().map(|p| {
-                                                    (p.to_string(), ViewOptionsTarget::Purity(p))
-                                                }))
-                                                .chain([(
-                                                    "Well".to_owned(),
-                                                    ViewOptionsTarget::FrackingNodes,
-                                                )]);
-
-                                        for (text, target) in headers {
-                                            header.col(|ui| {
-                                                let visible =
-                                                    self.view_options.is_target_visible(target);
-                                                let (partial, mut visible) =
-                                                    (visible.is_none(), visible.unwrap_or(true));
-
-                                                if ui
-                                                    .add(
-                                                        Checkbox::new(
-                                                            &mut visible,
-                                                            RichText::new(text).strong(),
-                                                        )
-                                                        .indeterminate(partial),
-                                                    )
-                                                    .hovered()
-                                                {
-                                                    view_options_highlight = Some(target);
-                                                }
-
-                                                self.view_options
-                                                    .set_target_visible(target, visible);
-                                            });
-                                        }
-                                    })
-                                    .body(|mut body| {
-                                        for resource in ResourceDescriptor::iter() {
-                                            body.row(18.0, |mut row| {
-                                                row.col(|ui| {
-                                                    ui.label(
-                                                        RichText::new("\u{23FA}")
-                                                            .color(get_resource_color(resource)),
-                                                    );
-
-                                                    let target =
-                                                        ViewOptionsTarget::Resource(resource);
-                                                    let visible =
-                                                        self.view_options.is_target_visible(target);
-                                                    let (partial, mut visible) = (
-                                                        visible.is_none(),
-                                                        visible.unwrap_or(true),
-                                                    );
-
-                                                    if ui
-                                                        .add(
-                                                            Checkbox::new(
-                                                                &mut visible,
-                                                                resource.to_string(),
-                                                            )
-                                                            .indeterminate(partial),
-                                                        )
-                                                        .hovered()
-                                                    {
-                                                        view_options_highlight = Some(target);
-                                                    }
-
-                                                    self.view_options
-                                                        .set_target_visible(target, visible);
-                                                });
-
-                                                let targets = ResourcePurity::iter()
-                                                    .map(|p| {
-                                                        ViewOptionsTarget::ResourceWithPurity(
-                                                            resource, p,
-                                                        )
-                                                    })
-                                                    .chain([
-                                                        ViewOptionsTarget::ResourceFrackingNodes(
-                                                            resource,
-                                                        ),
-                                                    ]);
-
-                                                for target in targets {
-                                                    row.col(|ui| {
-                                                        if !self.view_options.target_exists(target)
-                                                        {
-                                                            return;
-                                                        }
-
-                                                        let mut visible = self
-                                                            .view_options
-                                                            .is_target_visible(target)
-                                                            .unwrap_or_default();
-
-                                                        if ui
-                                                            .add(Checkbox::without_text(
-                                                                &mut visible,
-                                                            ))
-                                                            .hovered()
-                                                        {
-                                                            view_options_highlight = Some(target);
-                                                        }
-
-                                                        self.view_options
-                                                            .set_target_visible(target, visible);
-                                                    });
-                                                }
-                                            });
-                                        }
-                                    });
+                                self.view_options.ui(ui, &mut view_options_highlight);
                             }
 
                             SidePanel::Stats => {
-                                let available_height = ui.available_height();
-                                let table = TableBuilder::new(ui)
-                                    .striped(true)
-                                    .resizable(false)
-                                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                                    .column(Column::remainder())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .column(Column::auto())
-                                    .min_scrolled_height(0.0)
-                                    .max_scroll_height(available_height);
-
-                                table
-                                    .header(20.0, |mut header| {
-                                        header.col(|ui| {
-                                            ui.strong("Resource");
-                                        });
-
-                                        for mk in Stats::MINER_MK_RANGE {
-                                            for speed in Stats::CLOCK_SPEEDS {
-                                                header.col(|ui| {
-                                                    ui.strong(format!("Mk. {}\n{} %", mk, speed));
-                                                });
-                                            }
-                                        }
-                                    })
-                                    .body(|mut body| {
-                                        for resource in ResourceDescriptor::iter() {
-                                            body.row(18.0, |mut row| {
-                                                row.col(|ui| {
-                                                    ui.label(
-                                                        RichText::new("\u{23FA}")
-                                                            .color(get_resource_color(resource)),
-                                                    );
-                                                    ui.label(resource.to_string());
-                                                });
-
-                                                for mk in Stats::MINER_MK_RANGE {
-                                                    for speed in Stats::CLOCK_SPEEDS {
-                                                        let amount =
-                                                            self.stats.get(speed, mk, resource);
-
-                                                        row.col(|ui| {
-                                                            ui.label(format!("{}", amount));
-                                                        });
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
+                                self.stats_ui(ui);
                             }
                         }
                     });
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
-                    ui.heading("Randomization Settings");
+                    ui.horizontal(|ui| {
+                        ui.heading("Randomization Settings");
+                    });
                     ui.add_space(5.0);
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
@@ -471,7 +368,7 @@ impl eframe::App for App {
             let start_time = Self::get_time();
 
             let mut world: World =
-                serde_json::from_str(include_str!("../default-world.json")).unwrap();
+                serde_json::from_str(include_str!("../resources/default-world.json")).unwrap();
 
             apply_randomization_settings(
                 &mut world,
@@ -512,14 +409,22 @@ impl eframe::App for App {
                 .invert_y(true)
                 .id(self.plot_id);
 
+            let is_dark_mode = ui.visuals().dark_mode;
+
             plot.show(ui, |plot_ui| {
                 plot_ui.add(self.outline.plot_item());
 
                 let test_rect = plot_ui
                     .transform()
                     .rect_from_values(&PlotPoint::new(0.0, 0.0), &PlotPoint::new(1.0, 1.0));
-                let scale = (test_rect.width() + test_rect.height()) / 2.0;
-                let base_size = (5000.0 * scale).clamp(20.0, 30.0);
+                let scale = 5000.0 * (test_rect.width() + test_rect.height()) / 2.0;
+
+                let base_size = match self.view_options.get_node_style() {
+                    super::view_options::ResourceNodeStyle::Shapes => scale.clamp(5.0, 20.0),
+                    super::view_options::ResourceNodeStyle::IconsPurityColors => {
+                        (scale).clamp(15.0, 25.0)
+                    }
+                };
 
                 // resource nodes
                 for (resource, nodes) in &world.resource_nodes.iter().chunk_by(|n| n.resource) {
@@ -528,9 +433,9 @@ impl eframe::App for App {
                         ResourceDisplayContent::ResourceNodes(resource, nodes.collect()),
                         &self.view_options,
                         view_options_highlight,
-                        self.icons.resource(resource).map(|i| i.id()),
+                        self.resource_rextures.get(&resource).map(|h| h.id()),
+                        is_dark_mode,
                     ));
-
                 }
 
                 // fracking nodes
@@ -540,7 +445,8 @@ impl eframe::App for App {
                         ResourceDisplayContent::FrackingNodes(resource, cores.collect()),
                         &self.view_options,
                         view_options_highlight,
-                        self.icons.resource(resource).map(|i| i.id()),
+                        self.resource_rextures.get(&resource).map(|h| h.id()),
+                        is_dark_mode,
                     ));
                 }
 
@@ -550,7 +456,8 @@ impl eframe::App for App {
                     ResourceDisplayContent::Geysers(world.geysers.iter().by_ref().collect()),
                     &self.view_options,
                     view_options_highlight,
-                    self.icons.geyser().map(|i| i.id()),
+                    self.geyser_texture.as_ref().map(|h| h.id()),
+                    is_dark_mode,
                 ));
             });
 

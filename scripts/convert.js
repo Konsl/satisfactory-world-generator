@@ -1,7 +1,5 @@
-import { readSatisfactoryVersion } from "./version-info";
-
 const content = await Bun.file("extracted-resources.json").json();
-const gameVersion = await readSatisfactoryVersion();
+const gameVersion = content.find(e => e[0] === "GameVersion")[1];
 
 const resourceNodes = content.filter(e => e[0] === "BP_ResourceNode_C").map(e => ({
     name: e[1],
@@ -34,4 +32,4 @@ content.filter(e => e[0] === "BP_FrackingSatellite_C").forEach(e => {
 });
 
 const world = { gameVersion, resourceNodes, geysers, frackingCores };
-await Bun.write("../src/default-world.json", JSON.stringify(world));
+await Bun.write("../src/resources/default-world.json", JSON.stringify(world));

@@ -2,7 +2,7 @@
 /dist
 
 /scripts/extracted-resources.json
-/src/default-world.json
-/src/world-outline.json
+/src/resources/*
+!/src/resources/.gitkeep
 
 /scripts/*.dll
