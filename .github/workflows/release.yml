@@ -85,7 +85,7 @@ jobs:
         if: matrix.build == 'x86_64-windows'
         env:
           RESOURCES_PASSPHRASE: ${{ secrets.RESOURCES_PASSPHRASE }}
-        run: bsdtar -xf scripts/resources.encrypted.zip --passphrase "$env:RESOURCES_PASSPHRASE" -C src && echo "extracted resources" || echo "could not extract resources"
+        run: tar -xf scripts/resources.encrypted.zip --passphrase "$env:RESOURCES_PASSPHRASE" -C src && echo "extracted resources" || echo "could not extract resources"
 
       - name: Install ${{ matrix.rust }} toolchain
         uses: actions-rs/toolchain@v1
