@@ -23,7 +23,9 @@ jobs:
       - name: decrypt / extract resources
         env:
           RESOURCES_PASSPHRASE: ${{ secrets.RESOURCES_PASSPHRASE }}
-        run: bsdtar -xf scripts/resources.encrypted.zip --passphrase "$RESOURCES_PASSPHRASE" -C src && echo "extracted resources" || echo "could not extract resources"
+        run: |
+          sudo apt install libarchive-tools
+          bsdtar -xf scripts/resources.encrypted.zip --passphrase "$RESOURCES_PASSPHRASE" -C src && echo "extracted resources" || echo "could not extract resources"
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -76,7 +78,9 @@ jobs:
         if: matrix.build != 'x86_64-windows'
         env:
           RESOURCES_PASSPHRASE: ${{ secrets.RESOURCES_PASSPHRASE }}
-        run: bsdtar -xf scripts/resources.encrypted.zip --passphrase "$RESOURCES_PASSPHRASE" -C src && echo "extracted resources" || echo "could not extract resources"
+        run: |
+          sudo apt install libarchive-tools
+          bsdtar -xf scripts/resources.encrypted.zip --passphrase "$RESOURCES_PASSPHRASE" -C src && echo "extracted resources" || echo "could not extract resources"
       - name: decrypt / extract resources (windows)
         if: matrix.build == 'x86_64-windows'
         env:
