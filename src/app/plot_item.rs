@@ -1,6 +1,6 @@
 use std::{f32, ops::RangeInclusive};
 
-use egui::{Color32, PopupAnchor, Pos2, Shape, Stroke, epaint::CircleShape, vec2};
+use egui::{Color32, PopupAnchor, Pos2, Rect, Shape, Stroke, epaint::CircleShape, pos2, vec2};
 use egui_plot::{
     Cursor, LabelFormatter, MarkerShape, PlotBounds, PlotGeometry, PlotItem, PlotItemBase,
     PlotPoint, PlotTransform,
@@ -8,8 +8,8 @@ use egui_plot::{
 
 use crate::{
     app::{
-        constants::{get_purity_marker, get_resource_color},
-        view_options::{ViewOptions, ViewOptionsTarget},
+        constants::{get_purity_color, get_purity_marker, get_resource_color},
+        view_options::{ResourceNodeStyle, ViewOptions, ViewOptionsTarget},
     },
     game::{FrackingCore, GeyserNode, ResourceDescriptor, ResourceNode},
 };
@@ -73,6 +73,8 @@ pub struct ResourceDisplay<'a> {
     view_options: &'a ViewOptions,
     view_options_highlight: Option<ViewOptionsTarget>,
     plot_highlight: bool,
+
+    icon: Option<egui::TextureId>,
     is_dark_mode: bool,
 }
 
@@ -82,6 +84,7 @@ impl<'a> ResourceDisplay<'a> {
         content: ResourceDisplayContent<'a>,
         view_options: &'a ViewOptions,
         highlight: Option<ViewOptionsTarget>,
+        icon: Option<egui::TextureId>,
         is_dark_mode: bool,
     ) -> Self {
         let name = match content {
@@ -100,6 +103,8 @@ impl<'a> ResourceDisplay<'a> {
             view_options,
             view_options_highlight: highlight,
             plot_highlight: false,
+
+            icon,
             is_dark_mode,
         }
     }
@@ -108,18 +113,13 @@ impl<'a> ResourceDisplay<'a> {
         shape: MarkerShape,
         center: Pos2,
         radius: f32,
-        color: Color32,
-        filled: bool,
+        fill: Color32,
+        stroke: Stroke,
+        icon: Option<egui::TextureId>,
         shapes: &mut Vec<Shape>,
     ) {
         let sqrt_3 = 3_f32.sqrt();
         let frac_sqrt_3_2 = 3_f32.sqrt() / 2.0;
-
-        let (fill, stroke) = if filled {
-            (color, Stroke::NONE)
-        } else {
-            (Color32::TRANSPARENT, Stroke::new(radius / 5.0, color))
-        };
 
         let tf = |dx: f32, dy: f32| -> Pos2 { center + radius * vec2(dx, dy) };
 
@@ -155,12 +155,25 @@ impl<'a> ResourceDisplay<'a> {
             }
             _ => (),
         }
+
+        if let Some(icon) = icon {
+            let icon_size = 1.5 * radius;
+
+            shapes.push(Shape::image(
+                icon,
+                Rect::from_center_size(center, vec2(icon_size, icon_size)),
+                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                Color32::WHITE,
+            ));
+        }
     }
 }
 
 impl<'a> PlotItem for ResourceDisplay<'a> {
     fn shapes(&self, _ui: &egui::Ui, transform: &PlotTransform, shapes: &mut Vec<Shape>) {
         const HIGHLIGHT_SCALE: f32 = f32::consts::SQRT_2;
+        const STROKE_SHAPES: f32 = 0.2;
+        const STROKE_ICONS: f32 = 0.1;
 
         let scale = if self.plot_highlight && self.view_options_highlight.is_none() {
             HIGHLIGHT_SCALE
@@ -193,14 +206,29 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                     let center = transform.position_from_point(
                         &ResourceDisplayContent::convert_location(node.location),
                     );
-                    Self::marker_shape(
-                        get_purity_marker(node.purity),
-                        center,
-                        self.marker_base_size * scale,
-                        color,
-                        true,
-                        shapes,
-                    );
+
+                    let radius = self.marker_base_size * scale;
+
+                    match self.view_options.get_node_style() {
+                        ResourceNodeStyle::Shapes => Self::marker_shape(
+                            get_purity_marker(node.purity),
+                            center,
+                            radius,
+                            color,
+                            Stroke::NONE,
+                            None,
+                            shapes,
+                        ),
+                        ResourceNodeStyle::IconsPurityColors => Self::marker_shape(
+                            MarkerShape::Circle,
+                            center,
+                            radius,
+                            get_purity_color(node.purity),
+                            Stroke::new(STROKE_ICONS * radius, color),
+                            self.icon,
+                            shapes,
+                        ),
+                    }
                 }
             }
 
@@ -224,32 +252,50 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                 };
 
                 for core in cores {
-                    let center = transform.position_from_point(
-                        &ResourceDisplayContent::convert_location(core.location),
-                    );
+                    if self.view_options.get_node_style() == ResourceNodeStyle::Shapes {
+                        let center = transform.position_from_point(
+                            &ResourceDisplayContent::convert_location(core.location),
+                        );
 
-                    Self::marker_shape(
-                        MarkerShape::Circle,
-                        center,
-                        1.5 * self.marker_base_size * scale,
-                        color,
-                        false,
-                        shapes,
-                    );
+                        let radius = 1.5 * self.marker_base_size * scale;
+                        Self::marker_shape(
+                            MarkerShape::Circle,
+                            center,
+                            radius,
+                            Color32::TRANSPARENT,
+                            Stroke::new(STROKE_SHAPES * radius, color),
+                            None,
+                            shapes,
+                        );
+                    }
 
                     for satellite in &core.satellites {
                         let center = transform.position_from_point(
                             &ResourceDisplayContent::convert_location(satellite.location),
                         );
 
-                        Self::marker_shape(
-                            get_purity_marker(satellite.purity),
-                            center,
-                            0.75 * self.marker_base_size * scale,
-                            color,
-                            false,
-                            shapes,
-                        );
+                        let radius = 0.75 * self.marker_base_size * scale;
+
+                        match self.view_options.get_node_style() {
+                            ResourceNodeStyle::Shapes => Self::marker_shape(
+                                get_purity_marker(satellite.purity),
+                                center,
+                                radius,
+                                Color32::TRANSPARENT,
+                                Stroke::new(STROKE_SHAPES * radius, color),
+                                None,
+                                shapes,
+                            ),
+                            ResourceNodeStyle::IconsPurityColors => Self::marker_shape(
+                                MarkerShape::Circle,
+                                center,
+                                radius,
+                                get_purity_color(satellite.purity),
+                                Stroke::new(STROKE_ICONS * radius, color),
+                                self.icon,
+                                shapes,
+                            ),
+                        }
                     }
                 }
             }
@@ -278,14 +324,28 @@ impl<'a> PlotItem for ResourceDisplay<'a> {
                         &ResourceDisplayContent::convert_location(geyser.location),
                     );
 
-                    Self::marker_shape(
-                        MarkerShape::Asterisk,
-                        center,
-                        self.marker_base_size * scale,
-                        color,
-                        false,
-                        shapes,
-                    );
+                    let radius = self.marker_base_size * scale;
+
+                    match self.view_options.get_node_style() {
+                        ResourceNodeStyle::Shapes => Self::marker_shape(
+                            MarkerShape::Asterisk,
+                            center,
+                            self.marker_base_size * scale,
+                            Color32::TRANSPARENT,
+                            Stroke::new(STROKE_SHAPES * radius, color),
+                            None,
+                            shapes,
+                        ),
+                        ResourceNodeStyle::IconsPurityColors => Self::marker_shape(
+                            MarkerShape::Circle,
+                            center,
+                            self.marker_base_size * scale,
+                            get_purity_color(geyser.purity),
+                            Stroke::new(STROKE_ICONS * radius, color),
+                            self.icon,
+                            shapes,
+                        ),
+                    }
                 }
             }
         }

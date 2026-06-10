@@ -1,6 +1,9 @@
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
-use egui::{Align, Layout, RichText};
+use egui::{Align, Layout, RichText, TextureHandle};
 use egui_extras::{Column, TableBuilder};
 use egui_plot::PlotPoint;
 use itertools::Itertools;
@@ -13,6 +16,7 @@ use crate::{
         constants::get_resource_color,
         outline::WorldOutline,
         plot_item::{ResourceDisplay, ResourceDisplayContent},
+        textures::{get_geyser_texture, get_resource_texture, load_texture},
         view_options::ViewOptions,
     },
     game::{ResourceDescriptor, World},
@@ -50,6 +54,9 @@ pub struct App {
     view_options: ViewOptions,
 
     outline: WorldOutline,
+
+    resource_rextures: HashMap<ResourceDescriptor, TextureHandle>,
+    geyser_texture: Option<TextureHandle>,
 }
 
 impl Default for App {
@@ -69,6 +76,9 @@ impl Default for App {
             view_options: ViewOptions::new(),
 
             outline: WorldOutline::new(),
+
+            resource_rextures: HashMap::new(),
+            geyser_texture: None,
         }
     }
 }
@@ -76,21 +86,39 @@ impl Default for App {
 impl App {
     pub const PUBLIC_URL: Option<&'static str> = option_env!("PUBLIC_URL");
 
-    pub fn new(_cc: &eframe::CreationContext<'_>, startup_url: Option<&str>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, startup_url: Option<&str>) -> Self {
+        let mut app = Self::default();
+
         if let Some(params) = startup_url
             .and_then(|url| Url::parse(url).ok())
             .and_then(|url| serde_urlencoded::from_str::<QueryParams>(url.query()?).ok())
         {
-            Self {
-                seed: Some(params.seed),
-                randomization_mode: params.mode,
-                purity_settings: params.purity,
-
-                ..Default::default()
-            }
-        } else {
-            Default::default()
+            app.seed = Some(params.seed);
+            app.randomization_mode = params.mode;
+            app.purity_settings = params.purity;
         }
+
+        for resource in ResourceDescriptor::iter() {
+            let handle = load_texture(
+                &cc.egui_ctx,
+                resource.get_internal_name(),
+                get_resource_texture(resource),
+            )
+            .expect("could not load bundled texture");
+
+            app.resource_rextures.insert(resource, handle);
+        }
+
+        app.geyser_texture = Some(
+            load_texture(
+                &cc.egui_ctx,
+                "Desc_GeneratorGeoThermal_C",
+                get_geyser_texture(),
+            )
+            .expect("could not load bundled texture"),
+        );
+
+        app
     }
 
     pub const fn supports_share_link() -> bool {
@@ -340,7 +368,7 @@ impl eframe::App for App {
             let start_time = Self::get_time();
 
             let mut world: World =
-                serde_json::from_str(include_str!("../default-world.json")).unwrap();
+                serde_json::from_str(include_str!("../resources/default-world.json")).unwrap();
 
             apply_randomization_settings(
                 &mut world,
@@ -389,8 +417,14 @@ impl eframe::App for App {
                 let test_rect = plot_ui
                     .transform()
                     .rect_from_values(&PlotPoint::new(0.0, 0.0), &PlotPoint::new(1.0, 1.0));
-                let scale = (test_rect.width() + test_rect.height()) / 2.0;
-                let base_size = (5000.0 * scale).clamp(5.0, 20.0);
+                let scale = 5000.0 * (test_rect.width() + test_rect.height()) / 2.0;
+
+                let base_size = match self.view_options.get_node_style() {
+                    super::view_options::ResourceNodeStyle::Shapes => scale.clamp(5.0, 20.0),
+                    super::view_options::ResourceNodeStyle::IconsPurityColors => {
+                        (scale).clamp(15.0, 25.0)
+                    }
+                };
 
                 // resource nodes
                 for (resource, nodes) in &world.resource_nodes.iter().chunk_by(|n| n.resource) {
@@ -399,6 +433,7 @@ impl eframe::App for App {
                         ResourceDisplayContent::ResourceNodes(resource, nodes.collect()),
                         &self.view_options,
                         view_options_highlight,
+                        self.resource_rextures.get(&resource).map(|h| h.id()),
                         is_dark_mode,
                     ));
                 }
@@ -410,6 +445,7 @@ impl eframe::App for App {
                         ResourceDisplayContent::FrackingNodes(resource, cores.collect()),
                         &self.view_options,
                         view_options_highlight,
+                        self.resource_rextures.get(&resource).map(|h| h.id()),
                         is_dark_mode,
                     ));
                 }
@@ -420,6 +456,7 @@ impl eframe::App for App {
                     ResourceDisplayContent::Geysers(world.geysers.iter().by_ref().collect()),
                     &self.view_options,
                     view_options_highlight,
+                    self.geyser_texture.as_ref().map(|h| h.id()),
                     is_dark_mode,
                 ));
             });

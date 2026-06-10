@@ -61,6 +61,14 @@ impl ViewOptionsTarget {
     }
 }
 
+#[derive(PartialEq, Eq, Debug, Clone, Copy, strum::EnumIter, strum::Display)]
+pub enum ResourceNodeStyle {
+    #[strum(to_string = "shapes")]
+    Shapes,
+    #[strum(to_string = "icons + purity colors")]
+    IconsPurityColors,
+}
+
 pub struct ViewOptions {
     world_outline_visible: bool,
     geysers_visible: bool,
@@ -68,6 +76,8 @@ pub struct ViewOptions {
     /// impure, normal, pure, fracking
     /// see [ViewOptions::get_purity_index] and [ViewOptions::FRACKING_INDEX]
     visible_items: HashMap<ResourceDescriptor, [bool; 4]>,
+
+    node_style: ResourceNodeStyle,
 
     /// resource types where there exist resource nodes of that type
     existing_node_resources: HashSet<ResourceDescriptor>,
@@ -90,9 +100,15 @@ impl ViewOptions {
                 .map(|r| (r, Self::ALL_VISIBLE))
                 .collect(),
 
+            node_style: ResourceNodeStyle::Shapes,
+
             existing_node_resources: HashSet::new(),
             existing_fracking_resources: HashSet::new(),
         }
+    }
+
+    pub fn get_node_style(&self) -> ResourceNodeStyle {
+        self.node_style
     }
 
     fn get_purity_index(purity: ResourcePurity) -> usize {
@@ -367,6 +383,20 @@ impl ViewOptions {
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui, highlight: &mut Option<ViewOptionsTarget>) {
+        egui::Grid::new("view_settings_grid")
+            .num_columns(2)
+            .spacing([40.0, 4.0])
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("Style");
+                ui.horizontal(|ui| {
+                    ResourceNodeStyle::iter().for_each(|v| {
+                        ui.selectable_value(&mut self.node_style, v, v.to_string());
+                    })
+                });
+                ui.end_row();
+            });
+
         let available_height = ui.available_height();
         let table = TableBuilder::new(ui)
             .striped(true)

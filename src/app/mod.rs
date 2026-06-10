@@ -1,6 +1,7 @@
 mod constants;
 mod outline;
 mod plot_item;
+mod textures;
 mod ui;
 mod view_options;
 

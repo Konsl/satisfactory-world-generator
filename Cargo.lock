@@ -2962,6 +2962,7 @@ dependencies = [
  "egui_plot",
  "env_logger",
  "getrandom 0.4.2",
+ "image",
  "itertools",
  "log",
  "rand 0.10.1",

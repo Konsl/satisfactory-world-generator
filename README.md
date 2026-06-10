@@ -25,8 +25,9 @@ if you notice that the output of this program does not match what you see in gam
 ## Build Instructions - **ONLY FOR EXPERTS**
 
 - Clone this repo
-- You need to provide `src/default-world.json`, which describes the resources present in the default world and can be generated from the game assets using `scripts/`
-- You need to provide `src/world-outline.json`, which describes the outline of the map and is used as a background graphic.
+- You need to provide `src/resources/default-world.json`, which describes the resources present in the default world and can be generated from the game assets using `scripts/`
+- You need to provide `src/resources/world-outline.json`, which describes the outline of the map and is used as a background graphic.
   This was created manually by masking + redrawing and then tracing the in-game map image. Just put an empty array.
+- You need to provide `src/resources/textures/`, which contains some png icons for the different resource types and can be generated using `scripts/`
 - If you want link sharing to work, set the `PUBLIC_URL` environment variable to the url where you are going to host the web app.
 - Run `cargo run` to start the tool

@@ -32,4 +32,4 @@ content.filter(e => e[0] === "BP_FrackingSatellite_C").forEach(e => {
 });
 
 const world = { gameVersion, resourceNodes, geysers, frackingCores };
-await Bun.write("../src/default-world.json", JSON.stringify(world));
+await Bun.write("../src/resources/default-world.json", JSON.stringify(world));

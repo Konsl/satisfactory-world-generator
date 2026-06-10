@@ -37,7 +37,7 @@ pub fn get_resource_color(resource: ResourceDescriptor, is_dark_mode: bool) -> C
             ResourceDescriptor::NitrogenGas => "#9ea2ad",
         }
     })
-    .unwrap()
+    .expect("could not parse bundled resource color")
 }
 
 pub fn get_purity_marker(purity: ResourcePurity) -> MarkerShape {
@@ -46,4 +46,13 @@ pub fn get_purity_marker(purity: ResourcePurity) -> MarkerShape {
         ResourcePurity::Normal => MarkerShape::Diamond,
         ResourcePurity::Pure => MarkerShape::Circle,
     }
+}
+
+pub fn get_purity_color(purity: ResourcePurity) -> Color32 {
+    Color32::from_hex(match purity {
+        ResourcePurity::Impure => "#d23430",
+        ResourcePurity::Normal => "#f26418",
+        ResourcePurity::Pure => "#80b139",
+    })
+    .expect("could not parse bundled purity color")
 }

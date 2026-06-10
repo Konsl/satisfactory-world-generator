@@ -14,7 +14,7 @@ impl WorldOutline {
         const WORLD_REGION: [[f64; 2]; 2] = [[-324698.16, -375000.0], [425301.8, 375000.0]];
 
         let data: Vec<Vec<[f64; 2]>> =
-            serde_json::from_str(include_str!("../world-outline.json")).unwrap();
+            serde_json::from_str(include_str!("../resources/world-outline.json")).unwrap();
         let data = data
             .into_iter()
             .map(|line| {
