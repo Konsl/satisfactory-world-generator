@@ -382,7 +382,12 @@ impl ViewOptions {
         &mut self.geysers_visible
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui, highlight: &mut Option<ViewOptionsTarget>) {
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        highlight: &mut Option<ViewOptionsTarget>,
+        enable_scrolling: bool,
+    ) {
         egui::Grid::new("view_settings_grid")
             .num_columns(2)
             .spacing([40.0, 4.0])
@@ -407,7 +412,11 @@ impl ViewOptions {
             .column(Column::auto())
             .column(Column::auto())
             .column(Column::auto())
-            .min_scrolled_height(0.0)
+            .min_scrolled_height(if enable_scrolling {
+                0.0
+            } else {
+                available_height
+            })
             .max_scroll_height(available_height);
 
         table

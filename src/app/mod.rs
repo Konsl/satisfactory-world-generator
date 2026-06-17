@@ -13,7 +13,7 @@ pub fn run_app() -> eframe::Result {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1000.0, 800.0])
-            .with_min_inner_size([800.0, 300.0]),
+            .with_min_inner_size([400.0, 500.0]),
         window_builder: Some(Box::new(|builder| {
             builder.with_app_id("satisfactory-world-generator")
         })),

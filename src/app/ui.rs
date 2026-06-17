@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use egui::{Align, Layout, RichText, TextureHandle};
+use egui::{Align, Align2, Button, Id, Layout, Modal, Rect, RichText, TextureHandle, Vec2, vec2};
 use egui_extras::{Column, TableBuilder};
 use egui_plot::PlotPoint;
 use itertools::Itertools;
@@ -17,7 +17,7 @@ use crate::{
         outline::WorldOutline,
         plot_item::{ResourceDisplay, ResourceDisplayContent},
         textures::{get_geyser_texture, get_resource_texture, load_texture},
-        view_options::ViewOptions,
+        view_options::{ViewOptions, ViewOptionsTarget},
     },
     game::{ResourceDescriptor, World},
     randomization::{NodePuritySettings, NodeRandomizationMode, apply_randomization_settings},
@@ -57,6 +57,8 @@ pub struct App {
 
     resource_rextures: HashMap<ResourceDescriptor, TextureHandle>,
     geyser_texture: Option<TextureHandle>,
+
+    mobile_popup_open: bool,
 }
 
 impl Default for App {
@@ -79,6 +81,8 @@ impl Default for App {
 
             resource_rextures: HashMap::new(),
             geyser_texture: None,
+
+            mobile_popup_open: false,
         }
     }
 }
@@ -163,7 +167,7 @@ impl App {
         Duration::from_secs_f64((Self::get_time() - start_time) / 1000.0)
     }
 
-    fn stats_ui(&self, ui: &mut egui::Ui) {
+    fn stats_ui(&self, ui: &mut egui::Ui, enable_scrolling: bool) {
         let available_height = ui.available_height();
         let table = TableBuilder::new(ui)
             .striped(true)
@@ -176,7 +180,11 @@ impl App {
             .column(Column::auto())
             .column(Column::auto())
             .column(Column::auto())
-            .min_scrolled_height(0.0)
+            .min_scrolled_height(if enable_scrolling {
+                0.0
+            } else {
+                available_height
+            })
             .max_scroll_height(available_height);
 
         table
@@ -217,152 +225,200 @@ impl App {
                 }
             });
     }
+
+    fn side_panel_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        view_options_highlight: &mut Option<ViewOptionsTarget>,
+        enable_scrolling: bool,
+    ) {
+        ui.horizontal(|ui| {
+            SidePanel::iter().for_each(|v| {
+                ui.selectable_value(
+                    &mut self.side_panel,
+                    v,
+                    RichText::new(v.to_string()).heading(),
+                );
+            })
+        });
+        ui.separator();
+
+        match self.side_panel {
+            SidePanel::ViewOptions => {
+                self.view_options
+                    .ui(ui, view_options_highlight, enable_scrolling);
+            }
+
+            SidePanel::Stats => {
+                self.stats_ui(ui, enable_scrolling);
+            }
+        }
+    }
+
+    fn randomization_settings_ui(&mut self, ui: &mut egui::Ui) {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::Grid::new("settings_grid")
+                .num_columns(2)
+                .spacing([40.0, 4.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Seed");
+
+                    ui.with_layout(
+                        Layout::right_to_left(egui::Align::Center).with_cross_justify(true),
+                        |ui| {
+                            let randomize_seed = ui.button("\u{1F3B2} random").clicked();
+                            let mut seed_text =
+                                self.seed.map(|seed| seed.to_string()).unwrap_or_default();
+                            if ui
+                                .add(
+                                    egui::TextEdit::singleline(&mut seed_text)
+                                        .hint_text("0")
+                                        .desired_width(f32::INFINITY),
+                                )
+                                .changed()
+                            {
+                                self.world = None;
+                            }
+
+                            if randomize_seed {
+                                self.seed = Some(rand::random());
+                                self.world = None;
+                            } else if seed_text.is_empty() {
+                                self.seed = None;
+                            } else if let Ok(seed) = seed_text.trim().parse::<i32>() {
+                                self.seed = Some(seed);
+                            }
+                        },
+                    );
+
+                    ui.end_row();
+
+                    ui.label("Mode");
+                    egui::ComboBox::from_id_salt("mode_setting")
+                        .selected_text(self.randomization_mode.to_string())
+                        .show_ui(ui, |ui| {
+                            NodeRandomizationMode::iter().for_each(|m| {
+                                if ui
+                                    .selectable_value(
+                                        &mut self.randomization_mode,
+                                        m,
+                                        m.to_string(),
+                                    )
+                                    .changed()
+                                {
+                                    self.world = None;
+                                }
+                            });
+                        });
+                    ui.end_row();
+
+                    ui.label("Purity");
+                    egui::ComboBox::from_id_salt("purity_setting")
+                        .selected_text(self.purity_settings.to_string())
+                        .show_ui(ui, |ui| {
+                            NodePuritySettings::iter().for_each(|p| {
+                                if ui
+                                    .selectable_value(&mut self.purity_settings, p, p.to_string())
+                                    .changed()
+                                {
+                                    self.world = None;
+                                }
+                            });
+                        });
+                    ui.end_row();
+                });
+        });
+
+        if Self::supports_share_link() {
+            ui.add_space(15.0);
+
+            ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
+                if ui.button("\u{1F4CB} copy share url").clicked()
+                    && let Some(link) = self.create_share_link()
+                {
+                    ui.copy_text(link);
+                }
+            });
+        }
+    }
 }
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.global_style_mut(|style| style.interaction.selectable_labels = false);
+        let is_mobile_ui = ui.content_rect().width() < 700.0;
 
-        egui::Panel::top("top_bar")
-            .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(4))
-            .show_inside(ui, |ui| {
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    egui::widgets::global_theme_preference_buttons(ui);
+        if !is_mobile_ui {
+            egui::Panel::top("top_bar")
+                .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(4))
+                .show_inside(ui, |ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        egui::widgets::global_theme_preference_buttons(ui);
+                    });
                 });
-            });
+        }
 
         let mut view_options_highlight = None;
 
-        egui::Panel::right("settings_panel")
-            .resizable(true)
-            .min_size(400.0)
-            .show_inside(ui, |ui| {
-                egui::Panel::bottom("stats_panel")
-                    .resizable(true)
-                    .min_size(200.0)
-                    .default_size(380.0)
-                    .show_inside(ui, |ui| {
-                        ui.take_available_space();
+        if !is_mobile_ui {
+            egui::Panel::right("sidebar_panel")
+                .resizable(true)
+                .min_size(400.0)
+                .show_inside(ui, |ui| {
+                    egui::Panel::bottom("settings_stats_panel")
+                        .resizable(true)
+                        .min_size(200.0)
+                        .default_size(380.0)
+                        .show_inside(ui, |ui| {
+                            ui.take_available_space();
+                            ui.add_space(5.0);
+
+                            self.side_panel_ui(ui, &mut view_options_highlight, true);
+                        });
+
+                    egui::CentralPanel::default().show_inside(ui, |ui| {
+                        ui.heading("Randomization Settings");
                         ui.add_space(5.0);
 
-                        ui.horizontal(|ui| {
-                            SidePanel::iter().for_each(|v| {
-                                ui.selectable_value(&mut self.side_panel, v, v.to_string());
-                            })
-                        });
-                        ui.separator();
-
-                        match self.side_panel {
-                            SidePanel::ViewOptions => {
-                                self.view_options.ui(ui, &mut view_options_highlight);
-                            }
-
-                            SidePanel::Stats => {
-                                self.stats_ui(ui);
-                            }
-                        }
+                        self.randomization_settings_ui(ui);
                     });
-
-                egui::CentralPanel::default().show_inside(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading("Randomization Settings");
-                    });
+                });
+        } else {
+            egui::Panel::top("top_panel")
+                .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(8.0))
+                .show_inside(ui, |ui| {
+                    ui.heading("Randomization Settings");
                     ui.add_space(5.0);
 
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        egui::Grid::new("settings_grid")
-                            .num_columns(2)
-                            .spacing([40.0, 4.0])
-                            .striped(true)
-                            .show(ui, |ui| {
-                                ui.label("Seed");
+                    self.randomization_settings_ui(ui);
+                });
 
-                                ui.with_layout(
-                                    Layout::right_to_left(egui::Align::Center)
-                                        .with_cross_justify(true),
-                                    |ui| {
-                                        let randomize_seed =
-                                            ui.button("\u{1F3B2} random").clicked();
-                                        let mut seed_text = self
-                                            .seed
-                                            .map(|seed| seed.to_string())
-                                            .unwrap_or_default();
-                                        if ui
-                                            .add(
-                                                egui::TextEdit::singleline(&mut seed_text)
-                                                    .hint_text("0"),
-                                            )
-                                            .changed()
-                                        {
-                                            self.world = None;
-                                        }
+            let popup_id = Id::new("modal_test");
+            let animation = ui
+                .ctx()
+                .animate_bool_responsive(popup_id.with("animation"), self.mobile_popup_open);
 
-                                        if randomize_seed {
-                                            self.seed = Some(rand::random());
-                                            self.world = None;
-                                        } else if seed_text.is_empty() {
-                                            self.seed = None;
-                                        } else if let Ok(seed) = seed_text.trim().parse::<i32>() {
-                                            self.seed = Some(seed);
-                                        }
-                                    },
-                                );
-
-                                ui.end_row();
-
-                                ui.label("Mode");
-                                egui::ComboBox::from_id_salt("mode_setting")
-                                    .selected_text(self.randomization_mode.to_string())
-                                    .show_ui(ui, |ui| {
-                                        NodeRandomizationMode::iter().for_each(|m| {
-                                            if ui
-                                                .selectable_value(
-                                                    &mut self.randomization_mode,
-                                                    m,
-                                                    m.to_string(),
-                                                )
-                                                .changed()
-                                            {
-                                                self.world = None;
-                                            }
-                                        });
-                                    });
-                                ui.end_row();
-
-                                ui.label("Purity");
-                                egui::ComboBox::from_id_salt("purity_setting")
-                                    .selected_text(self.purity_settings.to_string())
-                                    .show_ui(ui, |ui| {
-                                        NodePuritySettings::iter().for_each(|p| {
-                                            if ui
-                                                .selectable_value(
-                                                    &mut self.purity_settings,
-                                                    p,
-                                                    p.to_string(),
-                                                )
-                                                .changed()
-                                            {
-                                                self.world = None;
-                                            }
-                                        });
-                                    });
-                                ui.end_row();
-                            });
+            if animation > 0.0 {
+                let modal = Modal::new(popup_id)
+                    .area(
+                        Modal::default_area(popup_id)
+                            .anchor(Align2::CENTER_BOTTOM, vec2(0.0, 400.0 * (1.0 - animation)))
+                            .constrain(false)
+                            .fade_in(false)
+                            .layout(Layout::default().with_cross_justify(true))
+                            .default_size(ui.content_rect().size()),
+                    )
+                    .show(ui.ctx(), |ui| {
+                        ui.multiply_opacity(animation);
+                        self.side_panel_ui(ui, &mut view_options_highlight, false);
                     });
 
-                    if Self::supports_share_link() {
-                        ui.add_space(15.0);
-
-                        ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                            if ui.button("\u{1F4CB} copy share url").clicked()
-                                && let Some(link) = self.create_share_link()
-                            {
-                                ui.copy_text(link);
-                            }
-                        });
-                    }
-                });
-            });
+                if modal.should_close() {
+                    self.mobile_popup_open = false;
+                }
+            }
+        }
 
         let world = self.world.get_or_insert_with(|| {
             let start_time = Self::get_time();
@@ -462,6 +518,22 @@ impl eframe::App for App {
             });
 
             self.view_options.apply_legend_interaction(ui, self.plot_id);
+
+            if is_mobile_ui {
+                let fab_size = Vec2::splat(50.0);
+                let bottom_right = ui.max_rect().max - vec2(10.0, 25.0);
+                let fab_rect = Rect::from_min_max(bottom_right - fab_size, bottom_right);
+
+                if ui
+                    .put(
+                        fab_rect,
+                        Button::new(RichText::new("\u{23f6}").size(30.0)).corner_radius(u8::MAX),
+                    )
+                    .clicked()
+                {
+                    self.mobile_popup_open = true;
+                }
+            }
         });
     }
 }
