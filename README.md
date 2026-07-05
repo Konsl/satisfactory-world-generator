@@ -31,3 +31,8 @@ if you notice that the output of this program does not match what you see in gam
 - You need to provide `src/resources/textures/`, which contains some png icons for the different resource types and can be generated using `scripts/`
 - If you want link sharing to work, set the `PUBLIC_URL` environment variable to the url where you are going to host the web app.
 - Run `cargo run` to start the tool
+
+## License
+
+The implementation of the randomization algorithm itself (`src/*.rs`) as well as the scripts used for extracting game resources (`scripts/`) are licensed under the [MIT license](LICENSE-MIT),
+and the source code of the viewer app (`src/app/*.rs`) is licensed under [GPL v3](LICENSE-GPL).
